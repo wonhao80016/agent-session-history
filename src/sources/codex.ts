@@ -21,6 +21,7 @@ export async function parseCodexSession(
   let cwd: string | undefined;
   let gitBranch: string | undefined;
   let source: unknown;
+  let topLevelParentId: string | undefined;
   let firstPrompt: string | undefined;
   let lastReply: string | undefined;
   let model: string | undefined;
@@ -56,6 +57,7 @@ export async function parseCodexSession(
         id ??= asString(payload.id) ?? asString(payload.session_id);
         cwd ??= asString(payload.cwd);
         source ??= payload.source;
+        topLevelParentId ??= asString(payload.parent_thread_id);
         gitBranch ??= isObject(payload.git) ? asString(payload.git.branch) : undefined;
         break;
       case 'turn_context':
@@ -89,8 +91,9 @@ export async function parseCodexSession(
   if (!id) {
     return undefined;
   }
-  const parentId = subagentParentId(source);
   const isSubagent = isObject(source) && 'subagent' in source;
+  // A top-level parent_thread_id on a regular session must not make it a child, or it would be moved with that parent.
+  const parentId = isSubagent ? (spawnedParentId(source) ?? topLevelParentId) : undefined;
   const isNonInteractiveSource = typeof source === 'string' && NON_INTERACTIVE_SOURCES.has(source);
   return {
     agent: 'codex',
@@ -124,8 +127,8 @@ function userPromptText(content: unknown): string | undefined {
   return request;
 }
 
-/** Only spawned threads record a parent id; other subagent kinds (for example review) carry none. */
-function subagentParentId(source: unknown): string | undefined {
+/** Spawned threads nest the parent id in source; other subagent kinds (for example review) use payload.parent_thread_id. */
+function spawnedParentId(source: unknown): string | undefined {
   if (!isObject(source) || !isObject(source.subagent) || !isObject(source.subagent.thread_spawn)) {
     return undefined;
   }

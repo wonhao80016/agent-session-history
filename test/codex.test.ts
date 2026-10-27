@@ -1,4 +1,6 @@
 import { strict as assert } from 'node:assert';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { DEFAULT_MAX_LINE_BYTES } from '../src/model';
@@ -68,6 +70,36 @@ test('review subagent without a parent thread is still non-interactive', async (
   assert.ok(session);
   assert.equal(session.parentId, undefined);
   assert.equal(session.interactive, false);
+});
+
+test('review subagent records its parent in session_meta.parent_thread_id', async () => {
+  const filePath = path.join(sessionsDir, '04', 'rollout-2026-10-04T12-30-00-0aaaaaaa-0000-7000-8000-000000000005.jsonl');
+  const session = await parseCodexSession(filePath, new Map(), options);
+
+  assert.ok(session);
+  assert.equal(session.isSubagent, true);
+  assert.equal(session.parentId, '0aaaaaaa-0000-7000-8000-000000000001');
+});
+
+test('a regular session with a top-level parent_thread_id is not treated as a child', async () => {
+  const workDir = await mkdtemp(path.join(tmpdir(), 'ash-codex-'));
+  try {
+    const filePath = path.join(workDir, 'rollout-regular.jsonl');
+    const meta = {
+      timestamp: '2026-10-08T00:00:00.000Z',
+      type: 'session_meta',
+      payload: { id: '0aaaaaaa-0000-7000-8000-000000000006', cwd: 'D:\\work\\demo', source: 'vscode', parent_thread_id: '0aaaaaaa-0000-7000-8000-000000000001' },
+    };
+    await writeFile(filePath, `${JSON.stringify(meta)}\n`);
+    const session = await parseCodexSession(filePath, new Map(), options);
+
+    assert.ok(session);
+    assert.equal(session.isSubagent, false);
+    assert.equal(session.parentId, undefined);
+    assert.equal(session.interactive, true);
+  } finally {
+    await rm(workDir, { recursive: true, force: true });
+  }
 });
 
 test('rollout without session_meta is rejected', async () => {

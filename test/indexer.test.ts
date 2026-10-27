@@ -9,7 +9,7 @@ import { IndexOptions, SessionIndexer } from '../src/index/indexer';
 
 const fixtures = path.join(__dirname, '..', '..', 'test', 'fixtures');
 const CODEX_PAGED_ID = '0aaaaaaa-0000-7000-8000-000000000001';
-const FILE_COUNT = 9;
+const FILE_COUNT = 10;
 let workDir: string;
 
 before(async () => {
@@ -43,7 +43,7 @@ test('lists interactive top-level sessions newest first with Codex titles and de
   );
   const codex = sessions[0];
   assert.equal(codex.title, 'Rename config loader');
-  assert.equal(codex.subagentCount, 1);
+  assert.equal(codex.subagentCount, 2);
   assert.deepEqual({ files: stats.files, parsed: stats.parsed, cached: stats.cached, failed: stats.failed }, {
     files: FILE_COUNT,
     parsed: FILE_COUNT,

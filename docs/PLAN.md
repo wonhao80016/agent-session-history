@@ -14,7 +14,8 @@
 
 **不做（第一版）：**
 - 卡片式 webview UI
-- 修改或刪除任何 session 檔案；擴充對兩個資料目錄一律唯讀
+- 修改 session 檔案內容；除了「移到資源回收筒」之外，擴充對兩個資料目錄一律唯讀
+- 永久刪除、多選批次刪除、依天數自動清理
 - 網路連線、遙測、Marketplace 發佈
 
 ## 2. 資料來源（已在本機確認，2026-10-27）
@@ -26,7 +27,7 @@
 | 使用者訊息 | `type: "user"`，排除 `isMeta`、`isSidechain`、`promptSource: "system"`、純 tool_result，以及以 `<` 開頭的注入文字 | `response_item` 中角色為 user 的 message，排除以 `<` 或 `# AGENTS.md` 開頭的注入文字；VS Code 版取 `## My request for Codex:` 之後的內容 |
 | 最後一句回覆 | 最後一筆含文字區塊的 `type: "assistant"` | 最後一筆角色為 assistant 的 `response_item` message |
 | 訊息數 | 使用者訊息加上含文字的 assistant 紀錄 | 使用者訊息加上 assistant message |
-| subagent 數 | 同名資料夾下 `subagents/*.jsonl` 的數量 | subagent 是獨立的 rollout 檔，`session_meta.payload.source.subagent.thread_spawn.parent_thread_id` 指向父 session；由索引層計算所有後代數量 |
+| subagent 數 | 同名資料夾下 `subagents/*.jsonl` 的數量 | subagent 是獨立的 rollout 檔。父 session ID 優先讀 `source.subagent.thread_spawn.parent_thread_id`，沒有就讀 `session_meta.payload.parent_thread_id`（review 類 subagent 用這個欄位）。只有 `source` 含 `subagent` 的紀錄才採用父 ID，一般 session 即使帶 `parent_thread_id` 也不會被當成子項，避免移動父 session 時連帶移走它；由索引層計算所有後代數量 |
 | 模型 | `assistant.message.model`，取最後一筆，排除 `<synthetic>` | `turn_context.payload.model`，取最後一筆 |
 | 分支 | 紀錄裡的 `gitBranch`，取最後一筆 | `session_meta.payload.git.branch`（session 開始時的分支；本機 101 個互動 session 中有 59 個帶此欄位），沒有就留空，不用「目前分支」代替 |
 | 工作目錄 | 第一筆 user 或 assistant 紀錄的 `cwd` | `session_meta.payload.cwd` |
@@ -127,6 +128,21 @@ test/
 - `cwd` 不存在時，不開終端，改跳警告，並提供「複製指令」按鈕。
 - 不傳任何權限相關參數，沿用使用者自己的 CLI 設定。
 
+## 6.1 移到資源回收筒
+
+- 入口：session 節點的右鍵選單「Move to Recycle Bin…」，一次一筆；不提供 ▶ 這類行內按鈕，也不在 Command Palette 出現。
+- 移動範圍：
+  - Claude：主檔 `<id>.jsonl`，以及同名資料夾 `<id>/`（subagents、tool-results）。
+  - Codex：所有分頁檔，以及所有後代 subagent 的 rollout 檔（由索引層計算，存在 `ownedFiles`，不進快取）。
+  - 不修改 `~/.codex/session_index.jsonl`；殘留的標題紀錄不影響任何功能。
+- 保護：
+  - 相關檔案中最新的修改時間在 10 分鐘內，就拒絕移動，避免動到仍在執行的 CLI session。
+  - 移動前跳出確認視窗，顯示檔案數與總大小；按下確認後再檢查一次 10 分鐘規則，避免視窗開著時 session 又被寫入。
+  - 統計檔案時用 `lstat`，符號連結與 Windows junction 只算本身，不往下走。
+  - 只用 `vscode.workspace.fs.delete(…, { useTrash: true })`；資源回收筒不可用時直接報錯，不退回成永久刪除。
+  - 成功後立即重新索引。
+- 本機估算（2026-10-27，只計算不移動）：subagent 最多的 Codex session 為 97 個檔案、89.9 MB；subagent 最多的 Claude session 為 391 個檔案、337 MB。
+
 ## 7. 效能與穩定性
 
 - **逐行串流讀取**：一行超過 `maxLineBytes`（預設 10 MiB）就跳過那一行並記錄在輸出面板，不讓整個 session 失敗（Orca 也是這樣處理）。
@@ -165,6 +181,7 @@ test/
 | M2 索引與 All | 完成 indexer、cache、All 範圍的樹 | session 總數與獨立 Python 參考腳本一致；記錄冷、熱掃描的實測時間 |
 | M3 範圍 | 完成 Workspace、Project 過濾與 git common dir 查詢 | 開 `stock_analyze_panel` 時，Workspace 只列該目錄的 session；Project 也包含它的 worktree；有測試覆蓋 cwd 已刪除的情況 |
 | M4 動作 | 完成接續、開啟、複製、搜尋、刷新、自動更新 | 手動測試：Claude 與 Codex 各接續一次成功；新增 session 後清單會自動更新 |
+| M4.1 移到資源回收筒 | 依第 6.1 節實作單筆移動 | 單元測試涵蓋路徑計算、大小統計與最新修改時間；使用者在 F5 實測移動一個舊 session 後，可從資源回收筒還原 |
 | M5 打包 | 用 `vsce package` 產生 .vsix 並在本機安裝 | 在一般 VS Code 視窗安裝後，M2 到 M4 的驗收項目重跑通過 |
 
 每個里程碑完成時，都會附 build 或測試輸出，並派 fresh-context agent 驗收。
@@ -190,3 +207,4 @@ test/
 | TypeScript 版本 | 5.9.3（相容性考量，暫不用 7.x） |
 | Codex subagent 數 | 計算所有後代 rollout 檔（subagent 可以再開 subagent，depth 可達 2）；subagent 本身不列在清單上 |
 | 測試資料 | 全部手寫合成，不從真實對話複製任何內容 |
+| 刪除 session（2026-10-27） | 只做單筆「移到資源回收筒」，含相關檔案；10 分鐘內有更新的拒絕；不做永久刪除與批次刪除 |

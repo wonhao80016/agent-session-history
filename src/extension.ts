@@ -10,6 +10,7 @@ import { GitRepoResolver } from './scope/gitRepo';
 import { expandHome } from './scope/paths';
 import { matchesQuery } from './scope/search';
 import { groupSessions } from './view/grouping';
+import { moveSessionToTrash } from './trash';
 import { SessionTreeProvider, TreeNode } from './view/treeProvider';
 
 const VIEW_ID = 'agentSessionHistory.sessions';
@@ -207,6 +208,11 @@ export function activate(context: vscode.ExtensionContext): void {
     sessionCommand('agentSessionHistory.openTranscript', openTranscript),
     sessionCommand('agentSessionHistory.copyId', copySessionId),
     sessionCommand('agentSessionHistory.reveal', revealTranscript),
+    sessionCommand('agentSessionHistory.moveToTrash', async (session) => {
+      if (await moveSessionToTrash(session)) {
+        await refresh();
+      }
+    }),
     vscode.commands.registerCommand('agentSessionHistory.activateSelection', async () => {
       const [node] = treeView.selection;
       if (node?.kind === 'session') {

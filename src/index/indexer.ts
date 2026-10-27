@@ -95,9 +95,14 @@ export function finalizeSessions(
   includeNonInteractive: boolean,
 ): SessionRecord[] {
   const sessions = mergePages(records);
+  const codexById = new Map<string, SessionRecord>();
   const children = new Map<string, string[]>();
   for (const record of sessions) {
-    if (record.agent === 'codex' && record.parentId) {
+    if (record.agent !== 'codex') {
+      continue;
+    }
+    codexById.set(record.id, record);
+    if (record.parentId) {
       const siblings = children.get(record.parentId) ?? [];
       siblings.push(record.id);
       children.set(record.parentId, siblings);
@@ -110,10 +115,13 @@ export function finalizeSessions(
       continue;
     }
     if (record.agent === 'codex') {
+      const descendants = descendantIds(record.id, children);
+      const descendantFiles = descendants.flatMap((id) => codexById.get(id)?.ownedFiles ?? []);
       visible.push({
         ...record,
         title: codexTitles.get(record.id) ?? record.firstPrompt ?? UNTITLED,
-        subagentCount: countDescendants(record.id, children),
+        subagentCount: descendants.length,
+        ownedFiles: [...(record.ownedFiles ?? [record.filePath]), ...descendantFiles],
       });
     } else {
       visible.push(record);
@@ -137,7 +145,9 @@ export function mergePages(records: readonly SessionRecord[]): SessionRecord[] {
       byKey.set(key, [record]);
     }
   }
-  return [...byKey.values()].map((pages) => (pages.length === 1 ? pages[0] : mergeOrderedPages(pages)));
+  return [...byKey.values()].map((pages) =>
+    pages.length === 1 ? { ...pages[0], ownedFiles: [pages[0].filePath] } : mergeOrderedPages(pages),
+  );
 }
 
 function mergeOrderedPages(pages: SessionRecord[]): SessionRecord {
@@ -154,13 +164,14 @@ function mergeOrderedPages(pages: SessionRecord[]): SessionRecord {
     cwd: ordered.find((page) => page.cwd)?.cwd,
     updatedAt: newestFirst.find((page) => page.updatedAt)?.updatedAt,
     filePath: last.filePath,
+    ownedFiles: ordered.map((page) => page.filePath),
     messageCount: ordered.reduce((sum, page) => sum + page.messageCount, 0),
     skippedLines: ordered.reduce((sum, page) => sum + page.skippedLines, 0),
   };
 }
 
-function countDescendants(id: string, children: ReadonlyMap<string, string[]>): number {
-  let count = 0;
+function descendantIds(id: string, children: ReadonlyMap<string, string[]>): string[] {
+  const found: string[] = [];
   const stack = [...(children.get(id) ?? [])];
   const seen = new Set<string>([id]);
   while (stack.length > 0) {
@@ -169,10 +180,10 @@ function countDescendants(id: string, children: ReadonlyMap<string, string[]>): 
       continue;
     }
     seen.add(child);
-    count++;
+    found.push(child);
     stack.push(...(children.get(child) ?? []));
   }
-  return count;
+  return found;
 }
 
 export function compareByUpdatedDesc(a: SessionRecord, b: SessionRecord): number {

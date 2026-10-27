@@ -105,6 +105,11 @@
         "command": "agentSessionHistory.activateSelection",
         "title": "Resume Selected Session",
         "category": "Agent Session History"
+      },
+      {
+        "command": "agentSessionHistory.moveToTrash",
+        "title": "Move to Recycle Bin…",
+        "category": "Agent Session History"
       }
     ],
     "menus": {
@@ -165,6 +170,11 @@
           "command": "agentSessionHistory.reveal",
           "when": "view == agentSessionHistory.sessions && viewItem =~ /^session\\./",
           "group": "3_reveal@1"
+        },
+        {
+          "command": "agentSessionHistory.moveToTrash",
+          "when": "view == agentSessionHistory.sessions && viewItem =~ /^session\\./",
+          "group": "9_delete@1"
         }
       ],
       "commandPalette": [
@@ -186,6 +196,10 @@
         },
         {
           "command": "agentSessionHistory.activateSelection",
+          "when": "false"
+        },
+        {
+          "command": "agentSessionHistory.moveToTrash",
           "when": "false"
         }
       ]

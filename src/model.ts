@@ -18,6 +18,8 @@ export interface SessionRecord {
   /** Codex stores subagent threads as separate rollout files; they are counted on the parent, not listed. */
   isSubagent: boolean;
   parentId?: string;
+  /** Every page file, plus descendant subagent rollouts for Codex; derived by the indexer, never cached. */
+  ownedFiles?: string[];
   skippedLines: number;
 }
 
