@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { SessionRecord } from '../model';
 
 /** Bump when SessionRecord or parser semantics change so stale entries are discarded. */
-export const CACHE_SCHEMA_VERSION = 4;
+export const CACHE_SCHEMA_VERSION = 5;
 
 export interface CacheEntry {
   mtimeMs: number;

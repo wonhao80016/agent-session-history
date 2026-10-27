@@ -1,7 +1,7 @@
 import { SessionRecord } from '../model';
 import { compareByStartedDesc, compareByUpdatedDesc } from '../index/indexer';
 import { CardView, EmptyAction, GroupView, Scope, scopeLabel, SortKey, ViewState } from '../protocol';
-import { filterByScope, groupIdentity, ScopeContext } from '../scope/filter';
+import { filterByScope, groupIdentity, isInside, ScopeContext } from '../scope/filter';
 import { matchesQuery } from '../scope/search';
 import { countOf, formatBytes } from './format';
 import { groupSessions, ProjectGroup, SessionComparator } from './grouping';
@@ -54,7 +54,7 @@ export function buildViewState(input: ViewInput): ViewState {
     visibleCount: visible.length,
     emptyMessage: buildEmptyMessage(input, query, inScope.length, visible.length),
     emptyActions: buildEmptyActions(input),
-    groups: groups.map(toGroupView),
+    groups: groups.map((group) => toGroupView(group, input)),
   };
 }
 
@@ -106,21 +106,28 @@ function buildNotices(input: ViewInput): string[] {
   return notices;
 }
 
-function toGroupView(group: ProjectGroup): GroupView {
-  return { key: group.key, label: group.label, path: group.path, cards: group.sessions.map(toCardView) };
+function toGroupView(group: ProjectGroup, input: ViewInput): GroupView {
+  return { key: group.key, label: group.label, path: group.path, cards: group.sessions.map((session) => toCardView(session, input)) };
 }
 
-function toCardView(session: SessionRecord): CardView {
+function toCardView(session: SessionRecord, input: ViewInput): CardView {
+  const { workspaceDirs, platform } = input.context;
+  const cwd = session.cwd;
   return {
     key: sessionKey(session),
+    id: session.id,
     agent: session.agent,
     title: session.title,
+    firstPrompt: session.firstPrompt,
     lastReply: session.lastReply,
     messageCount: session.messageCount,
     subagentCount: session.subagentCount,
     model: session.model,
     branch: session.gitBranch,
+    cwd,
+    startedAt: session.startedAt,
     updatedAt: session.updatedAt,
     interactive: session.interactive,
+    currentWorkspace: input.scope !== 'workspace' && cwd !== undefined && workspaceDirs.some((dir) => isInside(cwd, dir, platform)),
   };
 }

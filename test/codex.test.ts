@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { DEFAULT_MAX_LINE_BYTES } from '../src/model';
-import { parseCodexSession, readCodexTitleIndex } from '../src/sources/codex';
+import { mayHoldUsedRecord, parseCodexSession, readCodexTitleIndex } from '../src/sources/codex';
 
 const codexHome = path.join(__dirname, '..', '..', 'test', 'fixtures', 'codex');
 const sessionsDir = path.join(codexHome, 'sessions', '2026', '10');
@@ -97,6 +97,36 @@ test('a regular session with a top-level parent_thread_id is not treated as a ch
     assert.equal(session.isSubagent, false);
     assert.equal(session.parentId, undefined);
     assert.equal(session.interactive, true);
+  } finally {
+    await rm(workDir, { recursive: true, force: true });
+  }
+});
+
+test('oversized lines count only when their head shows a record the parser uses', async () => {
+  assert.equal(mayHoldUsedRecord('{"timestamp":"t","type":"event_msg","payload":{"type":"item_completed"'), false);
+  assert.equal(mayHoldUsedRecord('{"timestamp":"t","type":"response_item","payload":{"type":"function_call_output","call_id"'), false);
+  assert.equal(mayHoldUsedRecord('{"timestamp":"t","type":"compacted","payload":{'), false);
+  assert.equal(mayHoldUsedRecord('{"timestamp":"t","type":"response_item","payload":{"type":"message","role":"user"'), true);
+  assert.equal(mayHoldUsedRecord('{"timestamp":"t","type":"response_item","payload":{"role":"user","type":"message"'), true);
+  assert.equal(mayHoldUsedRecord('{"timestamp":"t","type":"session_meta","payload":{'), true);
+  assert.equal(mayHoldUsedRecord('{"timestamp":"t","payload":'), true);
+
+  const workDir = await mkdtemp(path.join(tmpdir(), 'ash-codex-'));
+  try {
+    const filePath = path.join(workDir, 'rollout-oversized.jsonl');
+    const meta = { timestamp: '2026-10-08T00:00:00.000Z', type: 'session_meta', payload: { id: '0aaaaaaa-0000-7000-8000-000000000007', cwd: 'D:\\work\\demo', source: 'vscode' } };
+    const padding = 'p'.repeat(2_000);
+    const lines = [
+      JSON.stringify(meta),
+      JSON.stringify({ timestamp: '2026-10-08T00:00:01.000Z', type: 'event_msg', payload: { type: 'item_completed', image: padding } }),
+      JSON.stringify({ timestamp: '2026-10-08T00:00:02.000Z', type: 'response_item', payload: { type: 'function_call_output', output: padding } }),
+      JSON.stringify({ timestamp: '2026-10-08T00:00:03.000Z', type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: padding }] } }),
+    ];
+    await writeFile(filePath, `${lines.join('\n')}\n`);
+    const session = await parseCodexSession(filePath, new Map(), { maxLineBytes: 1_000 });
+
+    assert.ok(session);
+    assert.equal(session.skippedLines, 1);
   } finally {
     await rm(workDir, { recursive: true, force: true });
   }

@@ -128,8 +128,12 @@ test/
      - `Agent:` 加最後一句回覆，最多兩行
      - agent 圖示與名稱、訊息數、subagent 數（大於 0 才顯示）、相對時間、模型
      - 分支標籤（有才顯示）；非互動 session 加 `non-interactive` 標籤
-- **點卡片**：接續該 session，方式見第 6 節。卡片可用 Tab 聚焦，Enter 也會接續。
-- **`⋯` 按鈕**：跳出 VS Code 的快速選單，列出接續、開啟原始紀錄、複製 ID、在檔案總管顯示、移到資源回收筒。
+- **點卡片**：接續該 session，方式見第 6 節；點在展開的詳細資訊區內、或是拖曳選取文字後放開，都不接續，方便複製文字（例如 session ID）。詳細資訊區的右鍵選單保留複製。
+- **`⋯` 按鈕**：跳出 VS Code 的快速選單，列出接續、在終端接續、開啟原始紀錄、在檔案總管顯示、複製 ID、移到資源回收筒。
+- **右鍵選單（W2）**：同一組動作，以 `webview/context` 選單提供，依「接續／檢視／複製／刪除」分組；卡片以 `data-vscode-context` 只帶 session key，擴充端照樣從自己的清單找出 session。清單區隱藏 webview 預設的剪下、複製、貼上，搜尋框保留。快速選單與右鍵選單共用同一份動作清單。
+- **展開詳細資訊（W2）**：卡片標題列的 ⌄ 按鈕展開第一句提問、工作目錄、session ID、開始與更新時間；展開狀態存在 webview 的 state，重新整理後保留。
+- **鍵盤（W2）**：清單只有一個 Tab 停駐點（最後聚焦的群組標題或卡片），卡片內的按鈕不在 Tab 順序中。上下鍵在可見的列之間移動，Home／End 到首末列；右鍵展開群組、進入第一張卡片或展開卡片詳細資訊；左鍵依序收起詳細資訊、回到群組標題、收合群組；Enter 接續；Shift+F10 或選單鍵開啟與 `⋯` 相同的快速選單：Shift+F10 在 keydown 攔截；選單鍵則因瀏覽器放開按鍵時一定會另外觸發 contextmenu，改在 contextmenu 事件取消並開快速選單（VS Code 的 webview 腳本遇到已取消的 contextmenu 就不開原生選單，見 1.143 的 `webview/browser/pre/index.html`），避免同時跳出兩個選單。點過卡片上的按鈕後，焦點回到卡片，方向鍵照常可用。無障礙角色採 tree 模式：清單為 `tree`、群組標題與卡片為 `treeitem`（level 1、2），卡片的朗讀名稱含詳細資訊是否展開。
+- **`Current workspace` 標籤（W2）**：session 的工作目錄位於目前開啟的資料夾內時顯示；Workspace 範圍不顯示，因為每張卡片都會有。原規劃名稱為 `Current worktree`，改名是因為開啟的資料夾不一定是 git worktree。
 - **相對時間**：webview 每分鐘自行重算，不必等重新索引。
 - **主題**：顏色一律用 `--vscode-*` CSS 變數，淺色、深色、高對比主題自動套用；例外只有 Claude 圖示的橘色，以及主題沒提供分隔線顏色時的半透明灰。agent 圖示用自繪的簡單圖形，不放官方 logo。
 - **重繪**：組別與內容沒變的卡片沿用原本的 DOM 節點，只換掉有變動的卡片；自動刷新不會打斷焦點、選取的文字，或搜尋中手動收合的組別。搜尋框只在主機端改了關鍵字（例如命令面板的 Clear Search）時才被覆寫：webview 每次送出關鍵字都帶遞增序號，主機在畫面資料裡回報最後套用的序號，比 webview 最後送出的舊就忽略，不會蓋掉正在輸入的字。範圍或排序改變時，非搜尋狀態的組別依記住的展開狀態或「第一組展開」重新計算。
@@ -139,7 +143,6 @@ test/
   - CSP 為 `default-src 'none'`，樣式與腳本只允許擴充自帶、帶 nonce 的檔案，不載入任何外部資源，也不開 command URI。
   - session 內容來自紀錄檔，可能含任意文字：一律用 `textContent` 放進 DOM，不用 `innerHTML`。
   - webview 傳回的訊息只帶 session 的 key（agent 加 ID）；擴充端從自己的清單找出 session 才執行動作，不採用 webview 傳來的路徑或指令。
-- **W2 再加**：卡片展開詳細資訊（第一句提問、工作目錄、session ID、開始時間）、原生右鍵選單、方向鍵移動、`Current worktree` 標籤。
 
 ### 5.2 TreeView（M0 到 M5，W1 起移除）
 
@@ -202,7 +205,7 @@ W1 起，點卡片改由各 agent 自己的 VS Code 擴充接續，不開終端�
 
 ## 6.4 移到資源回收筒
 
-- 入口：卡片的 `⋯` 選單「Move to Recycle Bin…」（W2 起也在右鍵選單），一次一筆；不在 Command Palette 出現。
+- 入口：卡片的 `⋯` 選單與右鍵選單「Move to Recycle Bin…」，一次一筆；不在 Command Palette 出現。
 - 移動範圍：
   - Claude：主檔 `<id>.jsonl`，以及同名資料夾 `<id>/`（subagents、tool-results）。
   - Codex：所有分頁檔，以及所有後代 subagent 的 rollout 檔（由索引層計算，存在 `ownedFiles`，不進快取）。
@@ -217,7 +220,10 @@ W1 起，點卡片改由各 agent 自己的 VS Code 擴充接續，不開終端�
 
 ## 7. 效能與穩定性
 
-- **逐行串流讀取**：一行超過 `maxLineBytes`（預設 10 MiB）就跳過那一行並記錄在輸出面板，不讓整個 session 失敗（Orca 也是這樣處理）。
+- **逐行串流讀取**：一行超過 `maxLineBytes`（預設 10 MiB）就跳過那一行，不讓整個 session 失敗（Orca 也是這樣處理）。
+  - 被跳過的行保留開頭 4 KB 判斷紀錄類型。Codex 的頂層 `type` 一定在 `payload` 之前（本機抽樣 32,116 筆全部如此），所以 `event_msg`、`compacted`、非 `message` 的 `response_item` 這類解析器本來就不用的紀錄被跳過時不計數，不再出現誤報；看不出類型時照樣計數。
+  - Claude 的 assistant 紀錄多半 `type` 在 `message` 之後（本機抽樣 4,207 筆中有 3,981 筆），開頭看不出類型，所以一律計數。
+  - 輸出面板記下每個有跳過行的檔案路徑與行數，同一個檔案版本只記一次，避免自動刷新重複寫入。
 - **只解析需要的行**：先用字串比對 `"type":"assistant"` 這類片段，命中才 `JSON.parse`，其餘直接跳過。
 - **快取**：檔案的修改時間和大小都沒變，就直接用快取結果，不重讀。
 - **並行上限**：預設同時讀 4 個檔案。
@@ -242,7 +248,7 @@ W1 起，點卡片改由各 agent 自己的 VS Code 擴充接續，不開終端�
 | `agentSessionHistory.codexDir` | `~/.codex` | Codex 資料目錄 |
 | `agentSessionHistory.includeNonInteractive` | `false` | 是否顯示 `codex exec`、`claude --print` 這類非互動 session（你的 review-debate-orchestrator 會產生大量這種紀錄） |
 | `agentSessionHistory.includeCodexArchived` | `false` | 是否掃描 `~/.codex/archived_sessions` |
-| `agentSessionHistory.maxLineBytes` | `10485760` | 單行大小上限，超過就跳過 |
+| `agentSessionHistory.maxLineBytes` | `10485760` | 單行大小上限，超過就跳過；最小 1 MiB，因為 Codex 的 `session_meta` 一行可達約 23 KB，太小會讓整個 session 消失 |
 
 ## 9. 里程碑與驗收
 
@@ -256,7 +262,7 @@ W1 起，點卡片改由各 agent 自己的 VS Code 擴充接續，不開終端�
 | M4.1 移到資源回收筒 | 依第 6.4 節實作單筆移動 | 單元測試涵蓋路徑計算、大小統計與最新修改時間；使用者在 F5 實測移動一個舊 session 後，可從資源回收筒還原 |
 | M5 打包 | 用 `vsce package` 產生 .vsix 並在本機安裝 | 在一般 VS Code 視窗安裝後，M2 到 M4 的驗收項目重跑通過 |
 | W1 卡片列表 | 依第 5.1 節改成 Webview View：範圍分頁、搜尋、掃描狀態、排序、分組收合、卡片、`⋯` 快速選單、空狀態；接續改用第 6 節的擴充開啟與跨視窗交接；移除 TreeView | 畫面資料（範圍、搜尋、排序、分組、統計、空狀態）、webview 訊息驗證、Claude 目錄比對與交接檔都有單元測試；F5 實測三種範圍、搜尋、排序、收合；Claude 各接續一個本視窗與其他資料夾的 session，Codex 接續一個 session，三者都不開終端；淺色與深色主題都看得清楚 |
-| W2 細節 | 卡片展開詳細資訊、原生右鍵選單、方向鍵移動、`Current worktree` 標籤，重新打包安裝 | F5 實測鍵盤操作與右鍵選單（含移到資源回收筒）；安裝 .vsix 後 W1 驗收項目重跑通過 |
+| W2 細節 | 卡片展開詳細資訊、原生右鍵選單、方向鍵移動、`Current workspace` 標籤、超大行誤報修正，版本 0.0.2 重新打包安裝 | 單元測試涵蓋超大行判斷、標籤與卡片欄位；headless 瀏覽器實測鍵盤、詳細資訊與右鍵選單屬性；F5 實測鍵盤操作與右鍵選單（含移到資源回收筒）；安裝 .vsix 後 W1 驗收項目重跑通過 |
 
 每個里程碑完成時，都會附 build 或測試輸出，並派 fresh-context agent 驗收。
 
@@ -285,4 +291,5 @@ W1 起，點卡片改由各 agent 自己的 VS Code 擴充接續，不開終端�
 | 打包與安裝（2026-10-27） | 用 `@vscode/vsce` 4.0.0（devDependency，固定版本）執行 `npm run package`，以 `--no-dependencies --allow-missing-repository --skip-license` 打包；`.vsix` 只含 `package.json`、`dist/extension.js`、`media/` 與 README，約 17 KB；以 `code --install-extension` 安裝到使用者的 VS Code。安裝、更新、移除步驟寫在 `README.md` |
 | 刪除 session（2026-10-27） | 只做單筆「移到資源回收筒」，含相關檔案；10 分鐘內有更新的拒絕；不做永久刪除與批次刪除 |
 | 介面改為卡片式 Webview View（2026-10-28） | 依 Orca 截圖的版面，取代 TreeView，不兩套並存；分 W1、W2 兩步 |
+| 超大行提示（2026-10-28） | 使用者問到提示的意義後，確認被跳過的 2 行是 Codex 的 `event_msg`（貼上的 15.2 MiB 截圖），解析器本來就不用；改成依紀錄類型判斷是否計數，並在輸出面板記下檔案 |
 | 接續方式（2026-10-28） | 使用者要求改由 VS Code 的 Claude Code、Codex 擴充接續，不用終端；Claude 的 session 不屬於目前視窗時，經確認後開新視窗交接；終端只留作明確選項 |

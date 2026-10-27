@@ -2,7 +2,7 @@
   "name": "agent-session-history",
   "displayName": "Agent Session History",
   "description": "Browse local Claude Code and Codex session history by workspace, project, or all.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "local",
   "private": true,
   "license": "UNLICENSED",
@@ -66,6 +66,36 @@
         "command": "agentSessionHistory.clearSearch",
         "title": "Clear Search",
         "category": "Agent Session History"
+      },
+      {
+        "command": "agentSessionHistory.session.resume",
+        "title": "Resume Session",
+        "category": "Agent Session History"
+      },
+      {
+        "command": "agentSessionHistory.session.resumeInTerminal",
+        "title": "Resume in Terminal",
+        "category": "Agent Session History"
+      },
+      {
+        "command": "agentSessionHistory.session.openTranscript",
+        "title": "Open Transcript",
+        "category": "Agent Session History"
+      },
+      {
+        "command": "agentSessionHistory.session.reveal",
+        "title": "Reveal Transcript in File Explorer",
+        "category": "Agent Session History"
+      },
+      {
+        "command": "agentSessionHistory.session.copyId",
+        "title": "Copy Session ID",
+        "category": "Agent Session History"
+      },
+      {
+        "command": "agentSessionHistory.session.moveToTrash",
+        "title": "Move to Recycle Bin…",
+        "category": "Agent Session History"
       }
     ],
     "menus": {
@@ -74,6 +104,64 @@
           "command": "agentSessionHistory.refresh",
           "when": "view == agentSessionHistory.sessions",
           "group": "navigation@9"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "agentSessionHistory.session.resume",
+          "when": "webviewId == 'agentSessionHistory.sessions' && webviewSection == 'session'",
+          "group": "1_resume@1"
+        },
+        {
+          "command": "agentSessionHistory.session.resumeInTerminal",
+          "when": "webviewId == 'agentSessionHistory.sessions' && webviewSection == 'session'",
+          "group": "1_resume@2"
+        },
+        {
+          "command": "agentSessionHistory.session.openTranscript",
+          "when": "webviewId == 'agentSessionHistory.sessions' && webviewSection == 'session'",
+          "group": "2_inspect@1"
+        },
+        {
+          "command": "agentSessionHistory.session.reveal",
+          "when": "webviewId == 'agentSessionHistory.sessions' && webviewSection == 'session'",
+          "group": "2_inspect@2"
+        },
+        {
+          "command": "agentSessionHistory.session.copyId",
+          "when": "webviewId == 'agentSessionHistory.sessions' && webviewSection == 'session'",
+          "group": "3_copy@1"
+        },
+        {
+          "command": "agentSessionHistory.session.moveToTrash",
+          "when": "webviewId == 'agentSessionHistory.sessions' && webviewSection == 'session'",
+          "group": "9_delete@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "agentSessionHistory.session.resume",
+          "when": "false"
+        },
+        {
+          "command": "agentSessionHistory.session.resumeInTerminal",
+          "when": "false"
+        },
+        {
+          "command": "agentSessionHistory.session.openTranscript",
+          "when": "false"
+        },
+        {
+          "command": "agentSessionHistory.session.reveal",
+          "when": "false"
+        },
+        {
+          "command": "agentSessionHistory.session.copyId",
+          "when": "false"
+        },
+        {
+          "command": "agentSessionHistory.session.moveToTrash",
+          "when": "false"
         }
       ]
     },
@@ -103,8 +191,8 @@
         "agentSessionHistory.maxLineBytes": {
           "type": "number",
           "default": 10485760,
-          "minimum": 1024,
-          "description": "Transcript lines larger than this many bytes are skipped."
+          "minimum": 1048576,
+          "description": "Transcript lines larger than this many bytes are skipped. Minimum 1 MiB, because smaller limits would drop whole sessions."
         }
       }
     }

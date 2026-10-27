@@ -25,6 +25,7 @@ export async function parseClaudeSession(filePath: string, options: ParseOptions
   let skippedLines = 0;
 
   for await (const event of readLines(filePath, options.maxLineBytes)) {
+    // Assistant records put `type` after `message`, so a skipped line's head cannot tell whether it mattered.
     if (event.kind === 'skipped') {
       skippedLines++;
       continue;

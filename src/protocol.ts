@@ -18,15 +18,21 @@ export function sortLabel(sort: SortKey): string {
 
 export interface CardView {
   key: string;
+  id: string;
   agent: AgentKind;
   title: string;
+  firstPrompt?: string;
   lastReply?: string;
   messageCount: number;
   subagentCount: number;
   model?: string;
   branch?: string;
+  cwd?: string;
+  startedAt?: string;
   updatedAt?: string;
   interactive: boolean;
+  /** The session ran inside an open workspace folder; never set in Workspace scope, where every card would carry it. */
+  currentWorkspace: boolean;
 }
 
 export interface GroupView {

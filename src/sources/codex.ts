@@ -7,6 +7,7 @@ const TITLE_CHARS = 120;
 const REPLY_CHARS = 200;
 const IDE_REQUEST_MARKER = '## My request for Codex:';
 const RELEVANT_MARKERS = ['"session_meta"', '"turn_context"', '"role":"user"', '"role":"assistant"'];
+const USED_RECORD_TYPES = new Set(['session_meta', 'turn_context', 'response_item']);
 
 /** Thread names keyed by session ID, read from `<codexHome>/session_index.jsonl`. */
 export type CodexTitleIndex = ReadonlyMap<string, string>;
@@ -32,7 +33,9 @@ export async function parseCodexSession(
 
   for await (const event of readLines(filePath, options.maxLineBytes)) {
     if (event.kind === 'skipped') {
-      skippedLines++;
+      if (mayHoldUsedRecord(event.head)) {
+        skippedLines++;
+      }
       continue;
     }
     if (!RELEVANT_MARKERS.some((marker) => event.text.includes(marker))) {
@@ -114,6 +117,22 @@ export async function parseCodexSession(
     parentId,
     skippedLines,
   };
+}
+
+/**
+ * Codex writes the top-level `type` before `payload` (and `payload.type` first inside it), so the head of a skipped
+ * line shows whether the parser would have used it; an unrecognizable head is counted as used.
+ */
+export function mayHoldUsedRecord(head: string): boolean {
+  const type = /"type":"([^"]+)"/.exec(head)?.[1];
+  if (type === undefined) {
+    return true;
+  }
+  if (!USED_RECORD_TYPES.has(type)) {
+    return false;
+  }
+  const payloadType = type === 'response_item' ? /"payload":\{"type":"([^"]+)"/.exec(head)?.[1] : undefined;
+  return payloadType === undefined || payloadType === 'message';
 }
 
 /** Returns the prompt a person typed; the VS Code extension wraps it after an IDE-context preamble. */

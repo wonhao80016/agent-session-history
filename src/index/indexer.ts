@@ -28,6 +28,9 @@ export interface IndexResult {
 export type IndexLogger = (message: string) => void;
 
 export class SessionIndexer {
+  /** Skipped lines are logged once per file version and size limit, not on every watcher-driven rebuild. */
+  private readonly reportedSkips = new Set<string>();
+
   constructor(
     private readonly cache: IndexCache,
     private readonly log: IndexLogger = () => undefined,
@@ -70,7 +73,13 @@ export class SessionIndexer {
       }
       nextEntries.set(job.filePath, entry);
       if (entry.record) {
-        stats.skippedLines += entry.record.skippedLines;
+        const skipped = entry.record.skippedLines;
+        stats.skippedLines += skipped;
+        const reportKey = `${job.filePath}|${entry.mtimeMs}|${options.maxLineBytes}`;
+        if (skipped > 0 && !this.reportedSkips.has(reportKey)) {
+          this.reportedSkips.add(reportKey);
+          this.log(`Skipped ${skipped} line(s) over ${options.maxLineBytes} bytes in ${job.filePath}`);
+        }
         records.push(entry.record);
       }
     });

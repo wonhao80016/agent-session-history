@@ -258,6 +258,43 @@ button {
   padding: 8px var(--side) 10px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
+  /* Keeps a focused card clear of the sticky group header when arrow keys scroll it into view. */
+  scroll-margin-top: 34px;
+}
+
+.card .expand .icon {
+  transition: transform 0.1s;
+}
+
+.card.expanded .expand .icon {
+  transform: rotate(180deg);
+}
+
+.card-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px 8px;
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  border-left: 2px solid var(--border);
+  background: var(--vscode-textBlockQuote-background, transparent);
+  font-size: 0.92em;
+  cursor: text;
+  user-select: text;
+}
+
+.card-details dt {
+  color: var(--vscode-descriptionForeground);
+}
+
+.card-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.tag-current {
+  border-color: var(--vscode-focusBorder);
+  color: var(--vscode-foreground);
 }
 
 .card:hover {

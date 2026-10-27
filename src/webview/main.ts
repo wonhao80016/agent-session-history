@@ -4,6 +4,7 @@ import { agentLabel, countOf, relativeTime } from '../view/format';
 
 interface PersistedState {
   expanded: Record<string, boolean>;
+  details: Record<string, boolean>;
 }
 
 interface VsCodeApi {
@@ -32,6 +33,8 @@ interface CardNode {
 }
 
 const SEARCH_DELAY_MS = 150;
+const MENU_KEY_WINDOW_MS = 1_000;
+const DRAG_THRESHOLD_PX = 4;
 const CLOCK_INTERVAL_MS = 60_000;
 const MAX_QUERY_LENGTH = 500;
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -57,7 +60,13 @@ const EMPTY_ACTIONS: Record<EmptyAction, { label: string; message: WebviewMessag
 };
 
 const vscode = acquireVsCodeApi();
-const persisted: PersistedState = { expanded: { ...(vscode.getState()?.expanded ?? {}) } };
+const stored = vscode.getState();
+const persisted: PersistedState = { expanded: { ...(stored?.expanded ?? {}) }, details: { ...(stored?.details ?? {}) } };
+/** Only one row (group header or card) is in the Tab order; arrow keys move between rows. */
+let activeRowKey: string | undefined;
+let menuKeyAt = 0;
+let pointerDownAt: { x: number; y: number } | undefined;
+let nextGroupId = 0;
 let renderedJson = '';
 let searchTimer: number | undefined;
 let lastPostedQuery = '';
@@ -86,7 +95,7 @@ searchInput.placeholder = 'Search sessions';
 searchInput.maxLength = MAX_QUERY_LENGTH;
 searchInput.spellcheck = false;
 searchInput.setAttribute('aria-label', 'Search sessions');
-const clearButton = iconButton('close', 'Clear search');
+const clearButton = iconButton('close', 'Clear search', true);
 const searchBox = element('div', 'search');
 searchBox.append(icon('search', 'search-icon'), searchInput, clearButton);
 
@@ -103,8 +112,23 @@ for (const sort of SORT_KEYS) {
 const summaryRow = element('div', 'summary');
 summaryRow.append(countLabel, sortSelect);
 const list = element('div', 'list');
+list.setAttribute('aria-label', 'Sessions');
+list.dataset.vscodeContext = JSON.stringify({ preventDefaultContextMenuItems: true });
 
 app.append(tabs, searchBox, scanRow, noticesBox, summaryRow, list);
+
+list.addEventListener('focusin', (event) => {
+  const target = event.target as HTMLElement;
+  if (target.dataset.row) {
+    setActiveRow(target);
+  }
+});
+list.addEventListener('keydown', handleListKey);
+list.addEventListener('contextmenu', handleListContextMenu);
+list.addEventListener('pointerdown', (event) => {
+  menuKeyAt = 0;
+  pointerDownAt = { x: event.clientX, y: event.clientY };
+});
 
 searchInput.addEventListener('input', () => {
   updateClearButton();
@@ -160,10 +184,17 @@ function render(state: ViewState): void {
   summaryRow.hidden = state.scan === undefined && state.groups.length === 0;
 
   const focusKey = (document.activeElement as HTMLElement | null)?.dataset?.focusKey;
+  // The tree role applies only to groups; the empty-state message and buttons are plain content.
+  if (state.groups.length > 0) {
+    list.setAttribute('role', 'tree');
+  } else {
+    list.removeAttribute('role');
+  }
   syncChildren(list, state.groups.length > 0 ? renderGroups(state) : renderEmpty(state));
   if (focusKey && document.activeElement === document.body) {
     list.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(focusKey)}"]`)?.focus();
   }
+  syncRovingTabIndex();
   updateClocks();
 }
 
@@ -241,13 +272,22 @@ function renderGroups(state: ViewState): HTMLElement[] {
 
 function createGroup(key: string): GroupNode {
   const section = element('section', 'group');
+  section.setAttribute('role', 'none');
   const header = element('button', 'group-header');
   header.type = 'button';
+  header.tabIndex = -1;
+  header.setAttribute('role', 'treeitem');
+  header.setAttribute('aria-level', '1');
+  header.dataset.row = 'group';
+  header.dataset.groupKey = key;
   header.dataset.focusKey = `group:${key}`;
   const label = element('span', 'group-label');
   const badge = element('span', 'badge');
   header.append(icon('chevron', 'chevron'), label, badge);
   const body = element('div', 'group-body');
+  body.setAttribute('role', 'group');
+  body.id = `group-body-${nextGroupId++}`;
+  header.setAttribute('aria-owns', body.id);
   section.append(header, body);
   const node: GroupNode = { key, section, header, label, badge, body, searching: false, open: false };
   header.addEventListener('click', () => {
@@ -257,6 +297,7 @@ function createGroup(key: string): GroupNode {
       vscode.setState(persisted);
     }
     applyOpen(node);
+    syncRovingTabIndex();
   });
   return node;
 }
@@ -290,21 +331,33 @@ function applyOpen(node: GroupNode): void {
 
 function renderCard(card: CardView): HTMLElement {
   const node = element('div', `card agent-${card.agent}`);
-  node.tabIndex = 0;
-  node.setAttribute('role', 'button');
-  node.setAttribute('aria-label', `Resume ${card.title}`);
+  node.tabIndex = -1;
+  node.setAttribute('role', 'treeitem');
+  node.setAttribute('aria-level', '2');
+  node.dataset.row = 'card';
+  node.dataset.key = card.key;
   node.dataset.focusKey = `card:${card.key}`;
+  node.dataset.label = `${card.title}. ${agentLabel(card.agent)}, ${countOf(card.messageCount, 'message')}.`;
+  node.dataset.vscodeContext = JSON.stringify({ webviewSection: 'session', sessionKey: card.key });
 
   const title = element('span', 'card-title', card.title);
   title.title = card.title;
+  // Clicking a card button hands focus back to the card, so arrow keys keep working and a refresh can restore it.
+  const expand = iconButton('chevron', 'Show details');
+  expand.classList.add('expand');
+  expand.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setDetailsOpen(node, card.key, !node.classList.contains('expanded'));
+    focusRow(node);
+  });
   const more = iconButton('more', 'More actions');
-  more.dataset.focusKey = `more:${card.key}`;
   more.addEventListener('click', (event) => {
     event.stopPropagation();
+    focusRow(node);
     post({ type: 'showActions', key: card.key });
   });
   const head = element('div', 'card-head');
-  head.append(title, more);
+  head.append(title, expand, more);
   node.append(head);
 
   if (card.lastReply) {
@@ -322,8 +375,9 @@ function renderCard(card: CardView): HTMLElement {
   }
   const time = element('span');
   time.dataset.iso = card.updatedAt ?? '';
-  if (card.updatedAt) {
-    time.title = new Date(card.updatedAt).toLocaleString();
+  const updated = localTime(card.updatedAt);
+  if (updated) {
+    time.title = updated;
   }
   meta.append(time);
   if (card.model) {
@@ -331,8 +385,11 @@ function renderCard(card: CardView): HTMLElement {
   }
   node.append(meta);
 
-  if (card.branch || !card.interactive) {
+  if (card.currentWorkspace || card.branch || !card.interactive) {
     const tags = element('div', 'card-tags');
+    if (card.currentWorkspace) {
+      tags.append(element('span', 'tag tag-current', 'Current workspace'));
+    }
     if (card.branch) {
       const branch = element('span', 'tag tag-branch');
       branch.title = card.branch;
@@ -345,14 +402,173 @@ function renderCard(card: CardView): HTMLElement {
     node.append(tags);
   }
 
-  node.addEventListener('click', () => post({ type: 'open', key: card.key }));
-  node.addEventListener('keydown', (event) => {
-    if (event.target === node && (event.key === 'Enter' || event.key === ' ')) {
-      event.preventDefault();
+  node.append(renderDetails(card));
+  setDetailsOpen(node, card.key, persisted.details[card.key] === true, false);
+
+  node.addEventListener('click', (event) => {
+    // Clicks inside the details, or drags that select text, are for copying text such as a session ID.
+    const dragged = pointerDownAt !== undefined && Math.hypot(event.clientX - pointerDownAt.x, event.clientY - pointerDownAt.y) > DRAG_THRESHOLD_PX;
+    pointerDownAt = undefined;
+    if (!(event.target as HTMLElement).closest('.card-details') && !dragged) {
       post({ type: 'open', key: card.key });
     }
   });
   return node;
+}
+
+function renderDetails(card: CardView): HTMLElement {
+  const details = element('dl', 'card-details');
+  // Restores Cut/Copy/Paste, which the list hides, so selected text here can be copied from the context menu.
+  details.dataset.vscodeContext = JSON.stringify({ preventDefaultContextMenuItems: false });
+  const rows: Array<[string, string | undefined]> = [
+    ['Prompt', card.firstPrompt],
+    ['Directory', card.cwd],
+    ['Session', card.id],
+    ['Started', localTime(card.startedAt)],
+    ['Updated', localTime(card.updatedAt)],
+  ];
+  for (const [label, value] of rows) {
+    if (value) {
+      details.append(element('dt', undefined, label), element('dd', undefined, value));
+    }
+  }
+  return details;
+}
+
+function setDetailsOpen(node: HTMLElement, key: string, open: boolean, remember = true): void {
+  const details = node.querySelector<HTMLElement>('.card-details');
+  const button = node.querySelector<HTMLElement>('.expand');
+  if (!details || !button) {
+    return;
+  }
+  details.hidden = !open;
+  node.classList.toggle('expanded', open);
+  node.setAttribute('aria-label', `${node.dataset.label ?? ''} ${open ? 'Details shown' : 'Details hidden'}. Enter to resume.`);
+  button.setAttribute('aria-expanded', String(open));
+  const label = open ? 'Hide details' : 'Show details';
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  if (!remember) {
+    return;
+  }
+  if (open) {
+    persisted.details[key] = true;
+  } else {
+    delete persisted.details[key];
+  }
+  vscode.setState(persisted);
+}
+
+function visibleRows(): HTMLElement[] {
+  return [...list.querySelectorAll<HTMLElement>('[data-row]')].filter((row) => !row.closest('[hidden]'));
+}
+
+function setActiveRow(row: HTMLElement): void {
+  activeRowKey = row.dataset.focusKey;
+  for (const other of list.querySelectorAll<HTMLElement>('[data-row]')) {
+    other.tabIndex = other === row ? 0 : -1;
+  }
+}
+
+/** Keeps exactly one visible row tabbable, preferring the last focused one. */
+function syncRovingTabIndex(): void {
+  const rows = visibleRows();
+  const active = rows.find((row) => row.dataset.focusKey === activeRowKey) ?? rows[0];
+  for (const row of list.querySelectorAll<HTMLElement>('[data-row]')) {
+    row.tabIndex = row === active ? 0 : -1;
+  }
+}
+
+function focusRow(row: HTMLElement | undefined): void {
+  if (row) {
+    setActiveRow(row);
+    row.focus();
+  }
+}
+
+/** Arrow keys follow the tree pattern: Right opens or enters, Left closes or returns to the group header. */
+function handleListKey(event: KeyboardEvent): void {
+  const row = event.target as HTMLElement;
+  if (!row.dataset.row) {
+    return;
+  }
+  const isCard = row.dataset.row === 'card';
+  const group = isCard ? undefined : groupNodes.get(row.dataset.groupKey ?? '');
+  const rows = visibleRows();
+  const index = rows.indexOf(row);
+  switch (event.key) {
+    case 'ArrowDown':
+      focusRow(rows[index + 1]);
+      break;
+    case 'ArrowUp':
+      focusRow(rows[index - 1]);
+      break;
+    case 'Home':
+      focusRow(rows[0]);
+      break;
+    case 'End':
+      focusRow(rows[rows.length - 1]);
+      break;
+    case 'ArrowRight':
+      if (isCard) {
+        setDetailsOpen(row, row.dataset.key ?? '', true);
+      } else if (group && !group.open) {
+        group.header.click();
+      } else {
+        focusRow(rows[index + 1]?.dataset.row === 'card' ? rows[index + 1] : undefined);
+      }
+      break;
+    case 'ArrowLeft':
+      if (isCard && row.classList.contains('expanded')) {
+        setDetailsOpen(row, row.dataset.key ?? '', false);
+      } else if (isCard) {
+        focusRow(row.closest('.group')?.querySelector<HTMLElement>('.group-header') ?? undefined);
+      } else if (group?.open) {
+        group.header.click();
+      }
+      break;
+    case 'Enter':
+    case ' ':
+      if (!isCard) {
+        return;
+      }
+      post({ type: 'open', key: row.dataset.key ?? '' });
+      break;
+    case 'F10':
+      // Handled here instead of relying on the webview context menu, so keyboard users always reach every action.
+      if (!isCard || !event.shiftKey) {
+        return;
+      }
+      post({ type: 'showActions', key: row.dataset.key ?? '' });
+      break;
+    case 'ContextMenu':
+      // The browser raises its own contextmenu event on key release whatever keydown does; handleListContextMenu takes it.
+      menuKeyAt = isCard ? Date.now() : 0;
+      return;
+    default:
+      return;
+  }
+  event.preventDefault();
+}
+
+/**
+ * A contextmenu right after the Menu key on a card opens the action quick pick. Cancelling it also stops VS Code's
+ * webview script, which skips events whose default was prevented, from opening the native menu as well.
+ */
+function handleListContextMenu(event: MouseEvent): void {
+  const fromMenuKey = menuKeyAt > 0 && Date.now() - menuKeyAt < MENU_KEY_WINDOW_MS;
+  menuKeyAt = 0;
+  const card = (event.target as HTMLElement).closest<HTMLElement>('[data-row="card"]');
+  if (!fromMenuKey || !card) {
+    return;
+  }
+  event.preventDefault();
+  post({ type: 'showActions', key: card.dataset.key ?? '' });
+}
+
+function localTime(iso: string | undefined): string | undefined {
+  const time = iso ? Date.parse(iso) : Number.NaN;
+  return Number.isNaN(time) ? undefined : new Date(time).toLocaleString();
 }
 
 /** Removes stale children first, then inserts in order, so nodes already in place are not moved. */
@@ -409,9 +625,13 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, className?: stri
   return node;
 }
 
-function iconButton(name: IconName, label: string): HTMLButtonElement {
+/** Untabbable by default, so card buttons stay out of the Tab order; arrow keys and Shift+F10 reach their actions. */
+function iconButton(name: IconName, label: string, tabbable = false): HTMLButtonElement {
   const button = element('button', 'icon-button');
   button.type = 'button';
+  if (!tabbable) {
+    button.tabIndex = -1;
+  }
   button.title = label;
   button.setAttribute('aria-label', label);
   button.append(icon(name));

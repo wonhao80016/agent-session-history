@@ -91,16 +91,33 @@ test('cards carry display fields and a key the host can resolve', () => {
 
   assert.deepEqual(card, {
     key: 'codex:b',
+    id: 'b',
     agent: 'codex',
     title: 'Add tests',
+    firstPrompt: undefined,
     lastReply: 'Done.',
     messageCount: 40,
     subagentCount: 0,
     model: undefined,
     branch: 'feat/tests',
+    cwd: APP_WORKTREE,
+    startedAt: '2026-10-05T00:00:00Z',
     updatedAt: '2026-10-06T00:00:00Z',
     interactive: true,
+    currentWorkspace: false,
   });
+});
+
+test('the current-workspace tag marks sessions inside an open folder, except in Workspace scope', () => {
+  const tagged = (scope: ViewInput['scope']): string[] =>
+    buildViewState(input({ scope }))
+      .groups.flatMap((group) => group.cards)
+      .filter((card) => card.currentWorkspace)
+      .map((card) => card.key);
+
+  assert.deepEqual(tagged('all'), ['claude:a']);
+  assert.deepEqual(tagged('project'), ['claude:a']);
+  assert.deepEqual(tagged('workspace'), []);
 });
 
 test('empty states distinguish indexing, nothing indexed, no folder, empty scope, and no match', () => {

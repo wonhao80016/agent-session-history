@@ -6,7 +6,12 @@
 
 - Claude session 用 Claude Code 擴充（`anthropic.claude-code`）開啟。Claude Code 只能接續屬於目前視窗資料夾（或同一 repo 其他 worktree）的 session；其他資料夾的 session 會先詢問，再開新視窗並在那裡接續。
 - Codex session 用 Codex 擴充（`openai.chatgpt`）開啟，任何視窗都可以。
-- 卡片的 `⋯` 選單另有「Resume in Terminal」，改用 `claude --resume` 或 `codex resume` 在終端接續。
+- 卡片的 `⋯` 選單與右鍵選單另有「Resume in Terminal」，改用 `claude --resume` 或 `codex resume` 在終端接續。
+
+## 操作
+
+- 卡片標題列的 ⌄ 展開第一句提問、工作目錄、session ID 與時間；`⋯` 或右鍵開啟動作選單。
+- 鍵盤：上下鍵移動，左右鍵收合／展開群組與詳細資訊，Enter 接續，Shift+F10 或選單鍵開動作選單。
 
 ## 安裝
 
@@ -15,7 +20,7 @@
 ```powershell
 npm install
 npm run package
-code --install-extension .\agent-session-history-0.0.1.vsix
+code --install-extension .\agent-session-history-0.0.2.vsix
 ```
 
 安裝後，已開啟的 VS Code 視窗要執行一次 **Developer: Reload Window**，才會出現在 Activity Bar。
@@ -52,4 +57,4 @@ code --uninstall-extension local.agent-session-history
 | `agentSessionHistory.codexDir` | `~/.codex` | Codex 資料目錄 |
 | `agentSessionHistory.includeNonInteractive` | `false` | 是否顯示 `codex exec`、`claude --print` 等非互動 session |
 | `agentSessionHistory.includeCodexArchived` | `false` | 是否掃描 Codex 的 `archived_sessions/` |
-| `agentSessionHistory.maxLineBytes` | `10485760` | 單行超過此大小就跳過 |
+| `agentSessionHistory.maxLineBytes` | `10485760` | 單行超過此大小就跳過（最小 1 MiB） |

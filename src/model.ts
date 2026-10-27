@@ -28,4 +28,5 @@ export interface ParseOptions {
 }
 
 export const DEFAULT_MAX_LINE_BYTES = 10 * 1024 * 1024;
+export const MIN_MAX_LINE_BYTES = 1024 * 1024;
 export const UNTITLED = '(untitled)';

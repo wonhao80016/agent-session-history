@@ -2,7 +2,7 @@ import { homedir } from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { copySessionId, openClaudeSession, openTranscript, ResumeHost, resumeInTerminal, resumeSession, revealTranscript } from './actions';
-import { DEFAULT_MAX_LINE_BYTES, SessionRecord } from './model';
+import { DEFAULT_MAX_LINE_BYTES, MIN_MAX_LINE_BYTES, SessionRecord } from './model';
 import { IndexCache } from './index/cache';
 import { IndexOptions, IndexResult, SessionIndexer } from './index/indexer';
 import { RefreshScheduler } from './index/refreshScheduler';
@@ -24,7 +24,11 @@ const SORT_STATE_KEY = 'agentSessionHistory.sort';
 const WATCH_INTERVAL_MS = 10_000;
 const OPEN_DEBOUNCE_MS = 1_500;
 
-interface SessionAction extends vscode.QuickPickItem {
+/** Shown in the `⋯` quick pick and registered as `agentSessionHistory.session.<command>` for the webview context menu. */
+interface SessionAction {
+  command: string;
+  icon: string;
+  label: (session: SessionRecord) => string;
   run: (session: SessionRecord) => Promise<void>;
 }
 
@@ -214,22 +218,38 @@ export function activate(context: vscode.ExtensionContext): void {
     await resumeSession(session, resumeHost);
   };
 
+  const sessionActions: SessionAction[] = [
+    {
+      command: 'resume',
+      icon: 'play',
+      label: (session) => `Resume in ${session.agent === 'claude' ? 'Claude Code' : 'Codex'}`,
+      run: (session) => resumeSession(session, resumeHost),
+    },
+    { command: 'resumeInTerminal', icon: 'terminal', label: () => 'Resume in Terminal', run: resumeInTerminal },
+    { command: 'openTranscript', icon: 'go-to-file', label: () => 'Open Transcript', run: openTranscript },
+    { command: 'reveal', icon: 'folder-opened', label: () => 'Reveal Transcript in File Explorer', run: revealTranscript },
+    { command: 'copyId', icon: 'copy', label: () => 'Copy Session ID', run: copySessionId },
+    { command: 'moveToTrash', icon: 'trash', label: () => 'Move to Recycle Bin…', run: trashSession },
+  ];
+
   const showActions = async (key: string): Promise<void> => {
     const session = sessionsByKey.get(key);
     if (!session) {
       return;
     }
-    const actions: SessionAction[] = [
-      { label: `$(play) Resume in ${session.agent === 'claude' ? 'Claude Code' : 'Codex'}`, run: (target) => resumeSession(target, resumeHost) },
-      { label: '$(terminal) Resume in Terminal', run: resumeInTerminal },
-      { label: '$(go-to-file) Open Transcript', run: openTranscript },
-      { label: '$(copy) Copy Session ID', run: copySessionId },
-      { label: '$(folder-opened) Reveal Transcript in File Explorer', run: revealTranscript },
-      { label: '$(trash) Move to Recycle Bin…', run: trashSession },
-    ];
-    const picked = await vscode.window.showQuickPick(actions, { title: session.title, placeHolder: 'Choose an action' });
+    const items = sessionActions.map((action) => ({ label: `$(${action.icon}) ${action.label(session)}`, action }));
+    const picked = await vscode.window.showQuickPick(items, { title: session.title, placeHolder: 'Choose an action' });
     if (picked) {
-      await picked.run(session);
+      await picked.action.run(session);
+    }
+  };
+
+  // The webview context menu passes the card's data-vscode-context object, which carries only the session key.
+  const runFromContextMenu = async (action: SessionAction, target: unknown): Promise<void> => {
+    const key = typeof target === 'object' && target !== null ? (target as Record<string, unknown>).sessionKey : undefined;
+    const session = typeof key === 'string' ? sessionsByKey.get(key) : undefined;
+    if (session) {
+      await action.run(session);
     }
   };
 
@@ -257,13 +277,15 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
+  const reportActionError = (error: unknown): void => {
+    logError(error);
+    void vscode.window.showErrorMessage(
+      `Agent Session History: ${error instanceof Error ? error.message : String(error)}. See the Agent Session History output for details.`,
+    );
+  };
+
   const provider = new SessionWebviewProvider(context.extensionUri, (message) => {
-    handleMessage(message).catch((error: unknown) => {
-      logError(error);
-      void vscode.window.showErrorMessage(
-        `Agent Session History: ${error instanceof Error ? error.message : String(error)}. See the Agent Session History output for details.`,
-      );
-    });
+    handleMessage(message).catch(reportActionError);
   });
 
   const restartWatchers = (): void => {
@@ -294,6 +316,11 @@ export function activate(context: vscode.ExtensionContext): void {
       provider.focusSearch();
     }),
     vscode.commands.registerCommand('agentSessionHistory.clearSearch', () => setQuery('')),
+    ...sessionActions.map((action) =>
+      vscode.commands.registerCommand(`agentSessionHistory.session.${action.command}`, (target: unknown) =>
+        runFromContextMenu(action, target).catch(reportActionError),
+      ),
+    ),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (started && event.affectsConfiguration(CONFIG_SECTION)) {
         restartWatchers();
@@ -327,6 +354,11 @@ function readStored<T extends string>(context: vscode.ExtensionContext, key: str
   return allowed.includes(stored as T) ? (stored as T) : fallback;
 }
 
+/** Codex session_meta lines reach about 23 KB, so a smaller limit would silently drop whole sessions. */
+function readMaxLineBytes(configured: unknown): number {
+  return typeof configured === 'number' && Number.isFinite(configured) ? Math.max(MIN_MAX_LINE_BYTES, configured) : DEFAULT_MAX_LINE_BYTES;
+}
+
 function readOptions(): IndexOptions {
   const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
   return {
@@ -334,7 +366,7 @@ function readOptions(): IndexOptions {
     codexHome: expandHome(config.get<string>('codexDir', '~/.codex')),
     includeCodexArchived: config.get<boolean>('includeCodexArchived', false),
     includeNonInteractive: config.get<boolean>('includeNonInteractive', false),
-    maxLineBytes: config.get<number>('maxLineBytes', DEFAULT_MAX_LINE_BYTES),
+    maxLineBytes: readMaxLineBytes(config.get<unknown>('maxLineBytes')),
     concurrency: 4,
   };
 }
