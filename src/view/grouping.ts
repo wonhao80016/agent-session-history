@@ -9,10 +9,13 @@ export interface ProjectGroup {
   sessions: SessionRecord[];
 }
 
-/** Groups are ordered by their most recent session. */
+export type SessionComparator = (a: SessionRecord, b: SessionRecord) => number;
+
+/** Sessions are sorted within each group, and groups are ordered by their first session under the same comparator. */
 export function groupSessions(
   sessions: readonly SessionRecord[],
   identify: (session: SessionRecord) => GroupIdentity,
+  compare: SessionComparator = compareByUpdatedDesc,
 ): ProjectGroup[] {
   const groups = new Map<string, ProjectGroup>();
   for (const session of sessions) {
@@ -26,7 +29,7 @@ export function groupSessions(
   }
   const result = [...groups.values()];
   for (const group of result) {
-    group.sessions.sort(compareByUpdatedDesc);
+    group.sessions.sort(compare);
   }
-  return result.sort((a, b) => compareByUpdatedDesc(a.sessions[0], b.sessions[0]));
+  return result.sort((a, b) => compare(a.sessions[0], b.sessions[0]));
 }

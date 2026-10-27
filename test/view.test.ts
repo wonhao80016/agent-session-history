@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { SessionRecord } from '../src/model';
 import { normalizePath, displayName } from '../src/scope/paths';
-import { relativeTime, sessionDescription } from '../src/view/format';
+import { countOf, relativeTime } from '../src/view/format';
 import { groupIdentity, ScopeContext } from '../src/scope/filter';
 import { groupSessions } from '../src/view/grouping';
 
@@ -33,9 +33,10 @@ test('relative time buckets', () => {
   assert.equal(relativeTime(undefined, NOW), 'unknown');
 });
 
-test('session description shows agent, message count, and age', () => {
-  assert.equal(sessionDescription(session({ messageCount: 1, updatedAt: '2026-10-27T11:57:00.000Z' }), NOW), 'Claude · 1 msg · 3m ago');
-  assert.equal(sessionDescription(session({ agent: 'codex', messageCount: 22, updatedAt: '2026-10-26T12:00:00.000Z' }), NOW), 'Codex · 22 msgs · 1d ago');
+test('counts use a singular noun only for one', () => {
+  assert.equal(countOf(1, 'msg'), '1 msg');
+  assert.equal(countOf(0, 'msg'), '0 msgs');
+  assert.equal(countOf(22, 'subagent'), '22 subagents');
 });
 
 test('Windows paths compare case- and separator-insensitively', () => {

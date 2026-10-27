@@ -1,14 +1,7 @@
 import { SessionRecord } from '../model';
+import type { Scope } from '../protocol';
 import { RepoInfo } from './gitRepo';
 import { displayName, normalizePath } from './paths';
-
-export type Scope = 'workspace' | 'project' | 'all';
-
-export const SCOPES: readonly Scope[] = ['workspace', 'project', 'all'];
-
-export function scopeLabel(scope: Scope): string {
-  return scope === 'workspace' ? 'Workspace' : scope === 'project' ? 'Project' : 'All';
-}
 
 export interface ScopeContext {
   workspaceDirs: readonly string[];

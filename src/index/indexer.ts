@@ -190,6 +190,10 @@ export function compareByUpdatedDesc(a: SessionRecord, b: SessionRecord): number
   return timeValue(b.updatedAt) - timeValue(a.updatedAt);
 }
 
+export function compareByStartedDesc(a: SessionRecord, b: SessionRecord): number {
+  return timeValue(b.startedAt) - timeValue(a.startedAt);
+}
+
 function timeValue(iso: string | undefined): number {
   const value = iso ? Date.parse(iso) : Number.NaN;
   return Number.isNaN(value) ? 0 : value;

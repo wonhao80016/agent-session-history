@@ -1,6 +1,12 @@
 # Agent Session History
 
-在 VS Code 側欄瀏覽本機 Claude Code 與 Codex 的 session 歷史，可切換 Workspace／Project／All 範圍，並直接接續 session。設計與規則見原始碼 repo 中的 `docs/PLAN.md`。
+在 VS Code 側欄用卡片瀏覽本機 Claude Code 與 Codex 的 session 歷史，可切換 Workspace／Project／All 範圍、搜尋、排序，點卡片即可接續 session。設計與規則見原始碼 repo 中的 `docs/PLAN.md`。
+
+## 接續方式
+
+- Claude session 用 Claude Code 擴充（`anthropic.claude-code`）開啟。Claude Code 只能接續屬於目前視窗資料夾（或同一 repo 其他 worktree）的 session；其他資料夾的 session 會先詢問，再開新視窗並在那裡接續。
+- Codex session 用 Codex 擴充（`openai.chatgpt`）開啟，任何視窗都可以。
+- 卡片的 `⋯` 選單另有「Resume in Terminal」，改用 `claude --resume` 或 `codex resume` 在終端接續。
 
 ## 安裝
 

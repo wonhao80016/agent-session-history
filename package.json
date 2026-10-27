@@ -13,7 +13,9 @@
     "Other"
   ],
   "main": "./dist/extension.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -28,17 +30,11 @@
       "agentSessionHistory": [
         {
           "id": "agentSessionHistory.sessions",
-          "name": "Sessions"
+          "name": "Sessions",
+          "type": "webview"
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "agentSessionHistory.sessions",
-        "when": "agentSessionHistory.indexed && !agentSessionHistory.hasSessions",
-        "contents": "No sessions found.\nCheck the Claude and Codex directory settings.\n[Open Settings](command:workbench.action.openSettings?%22agentSessionHistory%22)\n[Refresh](command:agentSessionHistory.refresh)"
-      }
-    ],
     "commands": [
       {
         "command": "agentSessionHistory.refresh",
@@ -49,158 +45,35 @@
       {
         "command": "agentSessionHistory.scope.workspace",
         "title": "Show Workspace Sessions",
-        "category": "Agent Session History",
-        "icon": "$(folder)",
-        "toggled": "agentSessionHistory.scope == workspace"
+        "category": "Agent Session History"
       },
       {
         "command": "agentSessionHistory.scope.project",
         "title": "Show Project Sessions",
-        "category": "Agent Session History",
-        "icon": "$(repo)",
-        "toggled": "agentSessionHistory.scope == project"
+        "category": "Agent Session History"
       },
       {
         "command": "agentSessionHistory.scope.all",
         "title": "Show All Sessions",
-        "category": "Agent Session History",
-        "icon": "$(globe)",
-        "toggled": "agentSessionHistory.scope == all"
+        "category": "Agent Session History"
       },
       {
         "command": "agentSessionHistory.search",
         "title": "Search Sessions",
-        "category": "Agent Session History",
-        "icon": "$(search)"
+        "category": "Agent Session History"
       },
       {
         "command": "agentSessionHistory.clearSearch",
         "title": "Clear Search",
-        "category": "Agent Session History",
-        "icon": "$(clear-all)"
-      },
-      {
-        "command": "agentSessionHistory.resume",
-        "title": "Resume in Terminal",
-        "category": "Agent Session History",
-        "icon": "$(play)"
-      },
-      {
-        "command": "agentSessionHistory.openTranscript",
-        "title": "Open Transcript",
-        "category": "Agent Session History",
-        "icon": "$(go-to-file)"
-      },
-      {
-        "command": "agentSessionHistory.copyId",
-        "title": "Copy Session ID",
-        "category": "Agent Session History"
-      },
-      {
-        "command": "agentSessionHistory.reveal",
-        "title": "Reveal Transcript in File Explorer",
-        "category": "Agent Session History"
-      },
-      {
-        "command": "agentSessionHistory.activateSelection",
-        "title": "Resume Selected Session",
-        "category": "Agent Session History"
-      },
-      {
-        "command": "agentSessionHistory.moveToTrash",
-        "title": "Move to Recycle Bin…",
         "category": "Agent Session History"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "agentSessionHistory.scope.workspace",
-          "when": "view == agentSessionHistory.sessions",
-          "group": "navigation@1"
-        },
-        {
-          "command": "agentSessionHistory.scope.project",
-          "when": "view == agentSessionHistory.sessions",
-          "group": "navigation@2"
-        },
-        {
-          "command": "agentSessionHistory.scope.all",
-          "when": "view == agentSessionHistory.sessions",
-          "group": "navigation@3"
-        },
-        {
-          "command": "agentSessionHistory.search",
-          "when": "view == agentSessionHistory.sessions",
-          "group": "navigation@5"
-        },
-        {
-          "command": "agentSessionHistory.clearSearch",
-          "when": "view == agentSessionHistory.sessions && agentSessionHistory.filtering",
-          "group": "navigation@6"
-        },
-        {
           "command": "agentSessionHistory.refresh",
           "when": "view == agentSessionHistory.sessions",
           "group": "navigation@9"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "agentSessionHistory.resume",
-          "when": "view == agentSessionHistory.sessions && viewItem =~ /^session\\./",
-          "group": "inline@1"
-        },
-        {
-          "command": "agentSessionHistory.resume",
-          "when": "view == agentSessionHistory.sessions && viewItem =~ /^session\\./",
-          "group": "1_session@1"
-        },
-        {
-          "command": "agentSessionHistory.openTranscript",
-          "when": "view == agentSessionHistory.sessions && viewItem =~ /^session\\./",
-          "group": "1_session@2"
-        },
-        {
-          "command": "agentSessionHistory.copyId",
-          "when": "view == agentSessionHistory.sessions && viewItem =~ /^session\\./",
-          "group": "2_copy@1"
-        },
-        {
-          "command": "agentSessionHistory.reveal",
-          "when": "view == agentSessionHistory.sessions && viewItem =~ /^session\\./",
-          "group": "3_reveal@1"
-        },
-        {
-          "command": "agentSessionHistory.moveToTrash",
-          "when": "view == agentSessionHistory.sessions && viewItem =~ /^session\\./",
-          "group": "9_delete@1"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "agentSessionHistory.resume",
-          "when": "false"
-        },
-        {
-          "command": "agentSessionHistory.openTranscript",
-          "when": "false"
-        },
-        {
-          "command": "agentSessionHistory.copyId",
-          "when": "false"
-        },
-        {
-          "command": "agentSessionHistory.reveal",
-          "when": "false"
-        },
-        {
-          "command": "agentSessionHistory.activateSelection",
-          "when": "false"
-        },
-        {
-          "command": "agentSessionHistory.moveToTrash",
-          "when": "false"
         }
       ]
     },
@@ -234,17 +107,10 @@
           "description": "Transcript lines larger than this many bytes are skipped."
         }
       }
-    },
-    "keybindings": [
-      {
-        "command": "agentSessionHistory.activateSelection",
-        "key": "enter",
-        "when": "focusedView == agentSessionHistory.sessions && listFocus && !inputFocus"
-      }
-    ]
+    }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/webview",
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "check": "npm run typecheck && npm run build",

@@ -24,6 +24,25 @@ export const runGitCommonDir: GitCommonDirRunner = (dir) =>
     );
   });
 
+/** Every worktree root of the repository containing `dir`, including the main one; empty when git fails. */
+export const runGitWorktreeList = (dir: string): Promise<string[]> =>
+  new Promise((resolve) => {
+    execFile(
+      'git',
+      ['-C', dir, 'worktree', 'list', '--porcelain'],
+      { timeout: GIT_TIMEOUT_MS, windowsHide: true },
+      (error, stdout) => resolve(error ? [] : parseWorktreeList(stdout)),
+    );
+  });
+
+export function parseWorktreeList(porcelain: string): string[] {
+  return porcelain
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('worktree '))
+    .map((line) => line.slice('worktree '.length).trim())
+    .filter((dir) => dir.length > 0);
+}
+
 export class GitRepoResolver {
   /** null records a directory where git found no repository or failed (missing directory, timeout, no git). */
   private readonly resolved = new Map<string, RepoInfo | null>();
