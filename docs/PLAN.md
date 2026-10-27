@@ -31,6 +31,7 @@
 | 分支 | 紀錄裡的 `gitBranch`，取最後一筆 | 解析器不提供；M3 範圍層查 git common dir 時順便取得目前分支 |
 | 工作目錄 | 第一筆 user 或 assistant 紀錄的 `cwd` | `session_meta.payload.cwd` |
 | 是否為非互動模式 | `entrypoint: "sdk-cli"`（`claude --print`）；互動式是 `cli` 或 `claude-vscode` | `source: "exec"`；`source` 為含 `subagent` 鍵的物件也視為非互動，包括 `thread_spawn` 與 `review` 兩種 |
+| 分頁 | 不適用 | `history_mode: "paginated"` 時，同一 thread 會分成 `rollout-…-<id>.jsonl` 與 `rollout-…-<id>_<page>.jsonl`，每頁的 `session_meta.id` 相同且只含接續內容；索引層依 ID 合併：訊息數相加，開始時間、第一句、工作目錄取最早一頁，最後回覆、模型、更新時間、檔案路徑取最新一頁 |
 | 時間 | user、assistant 紀錄中第一筆與最後一筆的 `timestamp` | 只看 session_meta、turn_context 與 response_item message；`compacted` 等其他紀錄不算 |
 
 **規模：** Claude 有 32 個專案目錄、54 個 session，單檔中位數 1.3 MB、最大 31 MB；Codex 有 849 個 session，單檔中位數 0.6 MB、最大 35.8 MB。
@@ -125,7 +126,13 @@ test/
 - **快取**：檔案的修改時間和大小都沒變，就直接用快取結果，不重讀。
 - **並行上限**：預設同時讀 4 個檔案。
 - **自動更新**：用 `FileSystemWatcher` 監看兩個資料目錄；只有一段時間沒有新變動才觸發重新索引，避免頻繁重掃。
-- **效能目標**（M2 量測後再修正）：首次冷掃描本機約 900 個檔案在 10 秒內完成；之後有快取的熱啟動在 1 秒內完成。
+- **效能目標**：首次冷掃描本機約 900 個檔案在 10 秒內完成；之後有快取的熱啟動在 1 秒內完成。
+- **M2 實測（2026-10-27，並行 4，本機真實資料）**：
+  - 冷掃描 903 個檔案耗時 3.3 到 3.6 秒；熱掃描 40 到 45 毫秒，全部命中快取。冷掃描時作業系統的檔案快取可能已熱，未量測真正的磁碟冷讀。
+  - 清單 153 個 session（Claude 52、Codex 101），與獨立 Python 參考腳本依 ID 去重後的數量一致。
+  - 快取檔約 1 MB，存在擴充的 globalStorage（`index-v1.json`）。
+- **快取作廢**：`SessionRecord` 或解析規則改變時調高 `CACHE_SCHEMA_VERSION`；快取也記錄解析選項（目前是 `maxLineBytes`），選項不同就整份作廢。多個 VS Code 視窗共用快取檔，寫入時各自使用含 pid 與亂數的暫存檔再改名。
+- **Codex 標題**：在索引層套用，不存進快取，所以 thread 改名不需要重新解析。
 
 ## 8. 設定項
 

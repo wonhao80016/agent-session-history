@@ -35,9 +35,57 @@
     "viewsWelcome": [
       {
         "view": "agentSessionHistory.sessions",
-        "contents": "No sessions indexed yet."
+        "contents": "No sessions found.\nCheck the Claude and Codex directory settings.\n[Open Settings](command:workbench.action.openSettings?%22agentSessionHistory%22)\n[Refresh](command:agentSessionHistory.refresh)"
       }
-    ]
+    ],
+    "commands": [
+      {
+        "command": "agentSessionHistory.refresh",
+        "title": "Refresh",
+        "category": "Agent Session History",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "agentSessionHistory.refresh",
+          "when": "view == agentSessionHistory.sessions",
+          "group": "navigation@9"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Agent Session History",
+      "properties": {
+        "agentSessionHistory.claudeDir": {
+          "type": "string",
+          "default": "~/.claude",
+          "description": "Claude Code data directory that contains `projects/`."
+        },
+        "agentSessionHistory.codexDir": {
+          "type": "string",
+          "default": "~/.codex",
+          "description": "Codex data directory that contains `sessions/` and `session_index.jsonl`."
+        },
+        "agentSessionHistory.includeNonInteractive": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also list non-interactive sessions such as `codex exec` and `claude --print`."
+        },
+        "agentSessionHistory.includeCodexArchived": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also scan Codex `archived_sessions/`."
+        },
+        "agentSessionHistory.maxLineBytes": {
+          "type": "number",
+          "default": 10485760,
+          "minimum": 1024,
+          "description": "Transcript lines larger than this many bytes are skipped."
+        }
+      }
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

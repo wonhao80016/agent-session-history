@@ -104,6 +104,7 @@ export async function parseCodexSession(
     updatedAt,
     filePath,
     interactive: !isSubagent && !isNonInteractiveSource,
+    isSubagent,
     parentId,
     skippedLines,
   };

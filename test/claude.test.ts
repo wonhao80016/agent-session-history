@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { DEFAULT_MAX_LINE_BYTES, UNTITLED } from '../src/model';
 import { parseClaudeSession } from '../src/sources/claude';
 
-const projectDir = path.join(__dirname, '..', '..', 'test', 'fixtures', 'claude', 'D--work-demo');
+const projectDir = path.join(__dirname, '..', '..', 'test', 'fixtures', 'claude', 'projects', 'D--work-demo');
 const options = { maxLineBytes: DEFAULT_MAX_LINE_BYTES };
 
 test('interactive session: title, counts, model, branch, subagents; truncated JSON lines are ignored', async () => {

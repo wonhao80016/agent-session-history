@@ -15,7 +15,8 @@ export interface SessionRecord {
   updatedAt?: string;
   filePath: string;
   interactive: boolean;
-  /** Set only for Codex subagent threads, which are stored as separate rollout files. */
+  /** Codex stores subagent threads as separate rollout files; they are counted on the parent, not listed. */
+  isSubagent: boolean;
   parentId?: string;
   skippedLines: number;
 }

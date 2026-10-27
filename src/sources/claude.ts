@@ -90,6 +90,7 @@ export async function parseClaudeSession(filePath: string, options: ParseOptions
     updatedAt,
     filePath,
     interactive: entrypoint === undefined || !NON_INTERACTIVE_ENTRYPOINTS.has(entrypoint),
+    isSubagent: false,
     skippedLines,
   };
 }
