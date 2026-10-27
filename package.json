@@ -1,0 +1,54 @@
+{
+  "name": "agent-session-history",
+  "displayName": "Agent Session History",
+  "description": "Browse local Claude Code and Codex session history by workspace, project, or all.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentSessionHistory",
+          "title": "Agent Session History",
+          "icon": "media/history.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentSessionHistory": [
+        {
+          "id": "agentSessionHistory.sessions",
+          "name": "Sessions"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "agentSessionHistory.sessions",
+        "contents": "No sessions indexed yet."
+      }
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "check": "npm run typecheck && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/vscode": "1.100.0",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
+  }
+}

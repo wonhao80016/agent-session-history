@@ -1,0 +1,173 @@
+# Agent Session History：VS Code 擴充規劃
+
+狀態：已確認，實作中（2026-10-27）
+
+## 1. 目標與範圍
+
+在 VS Code 側欄用 TreeView 列出本機 Claude Code 與 Codex 的 session 歷史，可切換 Workspace／Project／All 三種範圍，點選後在正確目錄接續該 session。
+
+**做：**
+- 讀取 `~/.claude/projects` 與 `~/.codex/sessions` 的 jsonl，建立索引
+- TreeView：依專案分組，顯示標題、agent、訊息數、模型、分支、相對時間
+- 三種範圍切換、關鍵字過濾、手動與自動刷新
+- 右鍵動作：在終端接續、開啟原始紀錄、複製 session ID、在檔案總管顯示
+
+**不做（第一版）：**
+- 卡片式 webview UI
+- 修改或刪除任何 session 檔案；擴充對兩個資料目錄一律唯讀
+- 網路連線、遙測、Marketplace 發佈
+
+## 2. 資料來源（已在本機確認，2026-10-27）
+
+| 欄位 | Claude：`~/.claude/projects/<編碼路徑>/<id>.jsonl` | Codex：`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` |
+|---|---|---|
+| session ID | 檔名，或紀錄裡的 `sessionId` | 第一行 `session_meta.payload.id` |
+| 標題 | 最後一筆 `type: "ai-title"` 的 `aiTitle`，沒有就取第一則使用者訊息 | `~/.codex/session_index.jsonl` 的 `thread_name`（849 個裡有 82 個），沒有就取第一則使用者訊息 |
+| 使用者訊息 | `type: "user"`，排除 `isMeta`、`isSidechain`、`promptSource: "system"`、純 tool_result，以及以 `<` 開頭的注入文字 | `response_item` 中角色為 user 的 message，排除以 `<` 或 `# AGENTS.md` 開頭的注入文字；VS Code 版取 `## My request for Codex:` 之後的內容 |
+| 最後一句回覆 | 最後一筆含文字區塊的 `type: "assistant"` | 最後一筆角色為 assistant 的 `response_item` message |
+| 訊息數 | 使用者訊息加上含文字的 assistant 紀錄 | 使用者訊息加上 assistant message |
+| subagent 數 | 同名資料夾下 `subagents/*.jsonl` 的數量 | subagent 是獨立的 rollout 檔，`session_meta.payload.source.subagent.thread_spawn.parent_thread_id` 指向父 session；由索引層計算所有後代數量 |
+| 模型 | `assistant.message.model`，取最後一筆，排除 `<synthetic>` | `turn_context.payload.model`，取最後一筆 |
+| 分支 | 紀錄裡的 `gitBranch`，取最後一筆 | 沒有，改用 `cwd` 查 git |
+| 工作目錄 | 第一筆紀錄的 `cwd` | `session_meta.payload.cwd` |
+| 是否為非互動模式 | `entrypoint: "sdk-cli"`（`claude --print`）；互動式是 `cli` 或 `claude-vscode` | `source: "exec"`；subagent 也視為非互動，不單獨列出 |
+| 時間 | 相關紀錄中第一筆與最後一筆的 `timestamp` | 同左；只看 session_meta、turn_context 與 user/assistant message |
+
+**規模：** Claude 有 32 個專案目錄、54 個 session，單檔中位數 1.3 MB、最大 31 MB；Codex 有 849 個 session，單檔中位數 0.6 MB、最大 35.8 MB。
+
+**M1 實測（2026-10-27，循序解析、尚無快取）：**
+- Claude：54 個全部解析成功，互動式 52 個，subagent 檔共 524 個；耗時 0.9 秒。
+- Codex：849 個全部解析成功，其中 subagent 687 個、exec 57 個、互動式 105 個；subagent 的父 session 都找得到；耗時 3.3 秒。
+- 加入字串預先過濾之前，Codex 耗時 14.8 秒。
+- 沒有標題的 265 個 Codex session 全部是非互動式。
+
+**注意：** 兩邊的 jsonl 都是內部格式，不是公開 API。Claude 一個檔案就有 14 種以上的紀錄類型，CLI 升版就可能改格式。
+
+## 3. 範圍定義
+
+| 範圍 | 判定方式 |
+|---|---|
+| Workspace | session 的 `cwd` 等於目前任一 workspace 資料夾，或位於其中 |
+| Project | session 的 `cwd` 與 workspace 資料夾屬於同一個 git repo，也就是 `git rev-parse --git-common-dir` 相同，因此同一 repo 的所有 worktree 會歸在一起 |
+| All | 全部 session，依專案分組 |
+
+- 路徑比對：Windows 上不分大小寫，斜線方向統一，磁碟代號統一大寫（`~/.claude.json` 曾出現 `D:/` 和 `d:/` 兩個重複的鍵）。
+- `cwd` 已經不存在（例如 worktree 已刪除）：Project 範圍改用路徑推斷，推斷不出來就歸到「其他」。
+- 沒有開啟 workspace：Workspace 與 Project 範圍顯示提示訊息，並提供一鍵切到 All。
+
+## 4. 架構
+
+```
+src/
+  extension.ts          進入點：註冊 view、指令、設定監聽
+  model.ts              SessionRecord 型別
+  sources/
+    claude.ts           解析 Claude jsonl，逐行串流讀取
+    codex.ts            解析 Codex rollout jsonl 與 session_index
+    lineReader.ts       共用：逐行讀取、跳過超大行、容錯解析
+  index/
+    indexer.ts          掃描兩個目錄、限制並行數、增量更新
+    cache.ts            以「路徑 + 修改時間 + 大小」做快取，存在 globalStorage
+  scope/
+    paths.ts            路徑正規化
+    gitRoot.ts          查詢 git common dir，結果依 cwd 快取
+    filter.ts           三種範圍的過濾與分組
+  view/
+    treeProvider.ts     TreeDataProvider：專案節點 → session 節點
+    format.ts           相對時間、截斷、tooltip Markdown
+  commands.ts           接續、開啟、複製、刷新、切換範圍、搜尋
+test/
+  fixtures/             去識別化的 Claude 與 Codex 範例 jsonl
+  *.test.ts             解析器與過濾邏輯的單元測試
+```
+
+**SessionRecord 欄位：** `id`、`agent`（claude 或 codex）、`title`、`lastReply`（截斷到 200 字）、`messageCount`、`subagentCount`、`model`、`gitBranch`、`cwd`、`startedAt`、`updatedAt`、`filePath`、`interactive`。
+
+**技術選擇：**
+- TypeScript，用 esbuild 打包成單一檔案，執行期零依賴
+- 單元測試用 Node 內建的 `node:test`，解析器和過濾邏輯不依賴 vscode 模組，可以獨立測試
+- `engines.vscode` 設 `^1.100.0`（本機是 1.142）
+- 本機已有 Node v24.14.1 與 npm 11
+
+## 5. 介面
+
+- **Activity Bar**：新增一個「Agent Session History」容器，裡面放一個 TreeView。
+- **TreeView 標題列按鈕**：
+  - 切換範圍：分成 Workspace、Project、All 三個指令，目前選中的那個用不同圖示標示
+  - 搜尋：開輸入框；過濾中時標題列顯示關鍵字，另有清除按鈕
+  - 刷新
+- **`view.description`**：顯示目前範圍與數量，例如 `All · 118 sessions`。
+- **樹狀結構**：
+  - 專案節點：名稱 + 數量，預設展開目前 workspace 的專案
+  - session 節點：
+    - 標籤：標題
+    - 說明：`Claude · 22 msgs · 3m ago`
+    - 圖示：依 agent 區分
+    - tooltip：最後一句回覆、模型、分支、subagent 數、工作目錄、ID
+- **排序**：依最後更新時間，新的在前。
+- **點兩下或按 Enter**：接續 session。
+- **右鍵選單**：接續、開啟原始紀錄（唯讀）、複製 ID、在檔案總管顯示。
+- **範圍記憶**：上次選的範圍存在 workspaceState。
+
+## 6. 接續 session
+
+- 建立 VS Code 終端，`cwd` 設成該 session 的工作目錄，名稱為 `Claude: <標題>` 或 `Codex: <標題>`。
+- 執行的指令：
+  - Claude：`claude --resume <id>`
+  - Codex：`codex resume <id>`
+- `cwd` 不存在時，不開終端，改跳警告，並提供「複製指令」按鈕。
+- 不傳任何權限相關參數，沿用使用者自己的 CLI 設定。
+
+## 7. 效能與穩定性
+
+- **逐行串流讀取**：一行超過 `maxLineBytes`（預設 10 MiB）就跳過那一行並記錄在輸出面板，不讓整個 session 失敗（Orca 也是這樣處理）。
+- **只解析需要的行**：先用字串比對 `"type":"assistant"` 這類片段，命中才 `JSON.parse`，其餘直接跳過。
+- **快取**：檔案的修改時間和大小都沒變，就直接用快取結果，不重讀。
+- **並行上限**：預設同時讀 4 個檔案。
+- **自動更新**：用 `FileSystemWatcher` 監看兩個資料目錄；只有一段時間沒有新變動才觸發重新索引，避免頻繁重掃。
+- **效能目標**（M2 量測後再修正）：首次冷掃描本機約 900 個檔案在 10 秒內完成；之後有快取的熱啟動在 1 秒內完成。
+
+## 8. 設定項
+
+| 設定 | 預設 | 說明 |
+|---|---|---|
+| `agentSessionHistory.claudeDir` | `~/.claude` | Claude 資料目錄 |
+| `agentSessionHistory.codexDir` | `~/.codex` | Codex 資料目錄 |
+| `agentSessionHistory.includeNonInteractive` | `false` | 是否顯示 `codex exec`、`claude --print` 這類非互動 session（你的 review-debate-orchestrator 會產生大量這種紀錄） |
+| `agentSessionHistory.includeCodexArchived` | `false` | 是否掃描 `~/.codex/archived_sessions` |
+| `agentSessionHistory.maxLineBytes` | `10485760` | 單行大小上限，超過就跳過 |
+
+## 9. 里程碑與驗收
+
+| 里程碑 | 內容 | 驗收條件 |
+|---|---|---|
+| M0 骨架 | 建立 package.json、tsconfig、esbuild 打包、`.vscode/launch.json`；側欄顯示空的 TreeView | 按 F5 開啟擴充開發主機，側欄看得到 Agent Session History |
+| M1 解析器 | 完成 `claude.ts`、`codex.ts`、`lineReader.ts` 與去識別化 fixtures | `node --test` 全部通過；涵蓋超大行、損壞行、缺欄位、沒有標題 |
+| M2 索引與 All | 完成 indexer、cache、All 範圍的樹 | session 總數與獨立 Python 參考腳本一致；記錄冷、熱掃描的實測時間 |
+| M3 範圍 | 完成 Workspace、Project 過濾與 git common dir 查詢 | 開 `stock_analyze_panel` 時，Workspace 只列該目錄的 session；Project 也包含它的 worktree；有測試覆蓋 cwd 已刪除的情況 |
+| M4 動作 | 完成接續、開啟、複製、搜尋、刷新、自動更新 | 手動測試：Claude 與 Codex 各接續一次成功；新增 session 後清單會自動更新 |
+| M5 打包 | 用 `vsce package` 產生 .vsix 並在本機安裝 | 在一般 VS Code 視窗安裝後，M2 到 M4 的驗收項目重跑通過 |
+
+每個里程碑完成時，都會附 build 或測試輸出，並派 fresh-context agent 驗收。
+
+## 10. 風險
+
+| 風險 | 對策 |
+|---|---|
+| CLI 升版改了 jsonl 格式 | 解析器對未知類型一律跳過，欄位缺就留空；fixtures 標註來源 CLI 版本；輸出面板記錄解析警告 |
+| 檔案很大或數量很多 | 串流讀取、先過濾再解析、快取、限制並行數 |
+| Windows 路徑大小寫與斜線不一致 | 統一正規化，並寫單元測試 |
+| 對話內容外洩 | 不連網、不送遙測；fixtures 必須去識別化，不得把真實對話提交進 repo |
+| 讀到 CLI 正在寫入的檔案 | 只讀不鎖檔；最後一行不完整就忽略，等下次刷新 |
+
+## 11. 決策紀錄
+
+| 項目 | 決定（2026-10-27） |
+|---|---|
+| 擴充名稱與 ID | `agent-session-history` |
+| 容器、view、設定的命名空間 | `agentSessionHistory`；`agentSessions` 已被 VS Code 1.142 內建的 Agent Sessions 保留，用了會導致容器不顯示 |
+| 非互動 session | 預設隱藏，用 `agentSessionHistory.includeNonInteractive` 開啟 |
+| 版本控制 | `ai_terminal` 已 `git init`；commit 前一律先取得使用者同意 |
+| TypeScript 版本 | 5.9.3（相容性考量，暫不用 7.x） |
+| Codex subagent 數 | 計算所有後代 rollout 檔（subagent 可以再開 subagent，depth 可達 2）；subagent 本身不列在清單上 |
+| 測試資料 | 全部手寫合成，不從真實對話複製任何內容 |
