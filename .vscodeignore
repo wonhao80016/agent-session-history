@@ -6,3 +6,8 @@ node_modules/**
 esbuild.mjs
 tsconfig.json
 **/*.map
+out/**
+*.vsix
+*.png
+!media/**
+.gitignore

@@ -207,4 +207,5 @@ test/
 | TypeScript 版本 | 5.9.3（相容性考量，暫不用 7.x） |
 | Codex subagent 數 | 計算所有後代 rollout 檔（subagent 可以再開 subagent，depth 可達 2）；subagent 本身不列在清單上 |
 | 測試資料 | 全部手寫合成，不從真實對話複製任何內容 |
+| 打包與安裝（2026-10-27） | 用 `@vscode/vsce` 4.0.0（devDependency，固定版本）執行 `npm run package`，以 `--no-dependencies --allow-missing-repository --skip-license` 打包；`.vsix` 只含 `package.json`、`dist/extension.js`、`media/` 與 README，約 17 KB；以 `code --install-extension` 安裝到使用者的 VS Code。安裝、更新、移除步驟寫在 `README.md` |
 | 刪除 session（2026-10-27） | 只做單筆「移到資源回收筒」，含相關檔案；10 分鐘內有更新的拒絕；不做永久刪除與批次刪除 |
