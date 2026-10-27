@@ -150,7 +150,7 @@ function mergeOrderedPages(pages: SessionRecord[]): SessionRecord {
     firstPrompt: ordered.find((page) => page.firstPrompt)?.firstPrompt,
     lastReply: newestFirst.find((page) => page.lastReply)?.lastReply,
     model: newestFirst.find((page) => page.model)?.model,
-    gitBranch: newestFirst.find((page) => page.gitBranch)?.gitBranch,
+    gitBranch: ordered.find((page) => page.gitBranch)?.gitBranch,
     cwd: ordered.find((page) => page.cwd)?.cwd,
     updatedAt: newestFirst.find((page) => page.updatedAt)?.updatedAt,
     filePath: last.filePath,

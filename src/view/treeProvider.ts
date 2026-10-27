@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { SessionRecord } from '../model';
 import { sessionDescription, tooltipFields } from './format';
-import { groupByDirectory, ProjectGroup } from './grouping';
+import { ProjectGroup } from './grouping';
 
 export type TreeNode = { kind: 'project'; group: ProjectGroup } | { kind: 'session'; session: SessionRecord };
 
@@ -10,8 +10,8 @@ export class SessionTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   readonly onDidChangeTreeData = this.changeEmitter.event;
   private groups: ProjectGroup[] = [];
 
-  setSessions(sessions: readonly SessionRecord[]): void {
-    this.groups = groupByDirectory(sessions);
+  setGroups(groups: ProjectGroup[]): void {
+    this.groups = groups;
     this.changeEmitter.fire(undefined);
   }
 

@@ -28,10 +28,10 @@
 | 訊息數 | 使用者訊息加上含文字的 assistant 紀錄 | 使用者訊息加上 assistant message |
 | subagent 數 | 同名資料夾下 `subagents/*.jsonl` 的數量 | subagent 是獨立的 rollout 檔，`session_meta.payload.source.subagent.thread_spawn.parent_thread_id` 指向父 session；由索引層計算所有後代數量 |
 | 模型 | `assistant.message.model`，取最後一筆，排除 `<synthetic>` | `turn_context.payload.model`，取最後一筆 |
-| 分支 | 紀錄裡的 `gitBranch`，取最後一筆 | 解析器不提供；M3 範圍層查 git common dir 時順便取得目前分支 |
+| 分支 | 紀錄裡的 `gitBranch`，取最後一筆 | `session_meta.payload.git.branch`（session 開始時的分支；本機 101 個互動 session 中有 59 個帶此欄位），沒有就留空，不用「目前分支」代替 |
 | 工作目錄 | 第一筆 user 或 assistant 紀錄的 `cwd` | `session_meta.payload.cwd` |
 | 是否為非互動模式 | `entrypoint: "sdk-cli"`（`claude --print`）；互動式是 `cli` 或 `claude-vscode` | `source: "exec"`；`source` 為含 `subagent` 鍵的物件也視為非互動，包括 `thread_spawn` 與 `review` 兩種 |
-| 分頁 | 不適用 | `history_mode: "paginated"` 時，同一 thread 會分成 `rollout-…-<id>.jsonl` 與 `rollout-…-<id>_<page>.jsonl`，每頁的 `session_meta.id` 相同且只含接續內容；索引層依 ID 合併：訊息數相加，開始時間、第一句、工作目錄取最早一頁，最後回覆、模型、更新時間、檔案路徑取最新一頁 |
+| 分頁 | 不適用 | `history_mode: "paginated"` 時，同一 thread 會分成 `rollout-…-<id>.jsonl` 與 `rollout-…-<id>_<page>.jsonl`，每頁的 `session_meta.id` 相同且只含接續內容；索引層依 ID 合併：訊息數相加，開始時間、第一句、工作目錄、分支取最早一頁，最後回覆、模型、更新時間、檔案路徑取最新一頁 |
 | 時間 | user、assistant 紀錄中第一筆與最後一筆的 `timestamp` | 只看 session_meta、turn_context 與 response_item message；`compacted` 等其他紀錄不算 |
 
 **規模：** Claude 有 32 個專案目錄、54 個 session，單檔中位數 1.3 MB、最大 31 MB；Codex 有 849 個 session，單檔中位數 0.6 MB、最大 35.8 MB。
@@ -53,8 +53,13 @@
 | All | 全部 session，依專案分組 |
 
 - 路徑比對：Windows 上不分大小寫，斜線方向統一，磁碟代號統一大寫（`~/.claude.json` 曾出現 `D:/` 和 `d:/` 兩個重複的鍵）。
-- `cwd` 已經不存在（例如 worktree 已刪除）：Project 範圍改用路徑推斷，推斷不出來就歸到「其他」。
-- 沒有開啟 workspace：Workspace 與 Project 範圍顯示提示訊息，並提供一鍵切到 All。
+- `cwd` 已經不存在或不是 git repo：分組退回以工作目錄分組。Project 範圍仍會保留位於 workspace 資料夾內的這類 session。
+- 已知限制：位於 workspace 外、且目錄已刪除的 worktree（例如 Orca 建在 `~/orca/workspaces` 的 worktree），無法判斷屬於哪個 repo，只會出現在 All 範圍。
+- 沒有開啟 workspace：Workspace 與 Project 範圍顯示提示訊息，請使用者改用 All。
+- git 查詢：以 `git -C <dir> rev-parse --path-format=absolute --git-common-dir` 判斷，同時最多 4 個、逾時 5 秒，結果依目錄快取。查不到的目錄只在手動按 Refresh 時重查，避免自動刷新反覆啟動 git。
+- 預設範圍：Workspace。
+- 空清單：完全沒有 session 時顯示設定提示（`agentSessionHistory.indexed`、`agentSessionHistory.hasSessions` 兩個 context key 控制）；只是目前範圍沒有 session 時，改在清單上方提示切換範圍。
+- 重新索引時，等 git 查詢完成才換上新的 session 清單，避免中途切換範圍看到分組不完整的結果。
 
 ## 4. 架構
 
@@ -94,7 +99,7 @@ test/
 
 - **Activity Bar**：新增一個「Agent Session History」容器，裡面放一個 TreeView。
 - **TreeView 標題列按鈕**：
-  - 切換範圍：分成 Workspace、Project、All 三個指令，目前選中的那個用不同圖示標示
+  - 切換範圍：Workspace、Project、All 三個按鈕（圖示 folder、repo、globe），用指令的 `toggled` 條件標示目前範圍
   - 搜尋：開輸入框；過濾中時標題列顯示關鍵字，另有清除按鈕
   - 刷新
 - **`view.description`**：顯示目前範圍與數量，例如 `All · 118 sessions`。
@@ -133,6 +138,10 @@ test/
   - 快取檔約 1 MB，存在擴充的 globalStorage（`index-v1.json`）。
 - **快取作廢**：`SessionRecord` 或解析規則改變時調高 `CACHE_SCHEMA_VERSION`；快取也記錄解析選項（目前是 `maxLineBytes`），選項不同就整份作廢。多個 VS Code 視窗共用快取檔，寫入時各自使用含 pid 與亂數的暫存檔再改名。
 - **Codex 標題**：在索引層套用，不存進快取，所以 thread 改名不需要重新解析。
+- **M3 實測（2026-10-27，以 `stock_analyze_panel` 當 workspace）**：
+  - Workspace 12 個（Claude 8、Codex 4），與獨立 Python 參考腳本一致；Project 也是 12 個，因為該 repo 目前沒有其他 worktree。
+  - All 153 個、36 組。
+  - 42 個不同的工作目錄查 git 耗時約 2 秒，其中 18 個是 repo。
 
 ## 8. 設定項
 

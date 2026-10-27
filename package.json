@@ -35,6 +35,7 @@
     "viewsWelcome": [
       {
         "view": "agentSessionHistory.sessions",
+        "when": "agentSessionHistory.indexed && !agentSessionHistory.hasSessions",
         "contents": "No sessions found.\nCheck the Claude and Codex directory settings.\n[Open Settings](command:workbench.action.openSettings?%22agentSessionHistory%22)\n[Refresh](command:agentSessionHistory.refresh)"
       }
     ],
@@ -44,10 +45,46 @@
         "title": "Refresh",
         "category": "Agent Session History",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "agentSessionHistory.scope.workspace",
+        "title": "Show Workspace Sessions",
+        "category": "Agent Session History",
+        "icon": "$(folder)",
+        "toggled": "agentSessionHistory.scope == workspace"
+      },
+      {
+        "command": "agentSessionHistory.scope.project",
+        "title": "Show Project Sessions",
+        "category": "Agent Session History",
+        "icon": "$(repo)",
+        "toggled": "agentSessionHistory.scope == project"
+      },
+      {
+        "command": "agentSessionHistory.scope.all",
+        "title": "Show All Sessions",
+        "category": "Agent Session History",
+        "icon": "$(globe)",
+        "toggled": "agentSessionHistory.scope == all"
       }
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "agentSessionHistory.scope.workspace",
+          "when": "view == agentSessionHistory.sessions",
+          "group": "navigation@1"
+        },
+        {
+          "command": "agentSessionHistory.scope.project",
+          "when": "view == agentSessionHistory.sessions",
+          "group": "navigation@2"
+        },
+        {
+          "command": "agentSessionHistory.scope.all",
+          "when": "view == agentSessionHistory.sessions",
+          "group": "navigation@3"
+        },
         {
           "command": "agentSessionHistory.refresh",
           "when": "view == agentSessionHistory.sessions",

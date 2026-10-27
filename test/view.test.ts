@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import { SessionRecord } from '../src/model';
 import { normalizePath, displayName } from '../src/scope/paths';
 import { relativeTime, sessionDescription } from '../src/view/format';
-import { groupByDirectory } from '../src/view/grouping';
+import { groupIdentity, ScopeContext } from '../src/scope/filter';
+import { groupSessions } from '../src/view/grouping';
 
 const NOW = Date.parse('2026-10-27T12:00:00.000Z');
 
@@ -44,13 +45,17 @@ test('Windows paths compare case- and separator-insensitively', () => {
   assert.equal(displayName('D:\\codebase\\stock_panel\\'), 'stock_panel');
 });
 
-test('groups by directory, newest group and newest session first', () => {
-  const groups = groupByDirectory([
-    session({ id: 'a', cwd: 'D:\\x\\alpha', updatedAt: '2026-10-01T00:00:00Z' }),
-    session({ id: 'b', cwd: 'd:/x/alpha', updatedAt: '2026-10-05T00:00:00Z' }),
-    session({ id: 'c', cwd: 'D:\\x\\beta', updatedAt: '2026-10-03T00:00:00Z' }),
-    session({ id: 'd', updatedAt: '2026-09-01T00:00:00Z' }),
-  ], 'win32');
+test('groups by directory when no repository is known, newest group and newest session first', () => {
+  const context: ScopeContext = { workspaceDirs: [], workspaceRepoKeys: new Set(), repoOf: () => undefined, platform: 'win32' };
+  const groups = groupSessions(
+    [
+      session({ id: 'a', cwd: 'D:\\x\\alpha', updatedAt: '2026-10-01T00:00:00Z' }),
+      session({ id: 'b', cwd: 'd:/x/alpha', updatedAt: '2026-10-05T00:00:00Z' }),
+      session({ id: 'c', cwd: 'D:\\x\\beta', updatedAt: '2026-10-03T00:00:00Z' }),
+      session({ id: 'd', updatedAt: '2026-09-01T00:00:00Z' }),
+    ],
+    (s) => groupIdentity(s, context),
+  );
 
   assert.deepEqual(
     groups.map((g) => [g.label, g.sessions.map((s) => s.id)]),

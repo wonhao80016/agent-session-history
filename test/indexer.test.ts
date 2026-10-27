@@ -63,6 +63,7 @@ test('paginated Codex thread is merged into one session', async () => {
   assert.equal(session.firstPrompt, 'Rename the config loader');
   assert.equal(session.lastReply, 'Changelog updated.');
   assert.equal(session.model, 'test-model-b');
+  assert.equal(session.gitBranch, 'feat/config-loader');
   assert.equal(session.startedAt, '2026-10-03T10:00:00.000Z');
   assert.equal(session.updatedAt, '2026-10-07T09:01:00.000Z');
   assert.ok(session.filePath.endsWith('0000000000f1.jsonl'));

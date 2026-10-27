@@ -19,6 +19,7 @@ export async function parseCodexSession(
 ): Promise<SessionRecord | undefined> {
   let id: string | undefined;
   let cwd: string | undefined;
+  let gitBranch: string | undefined;
   let source: unknown;
   let firstPrompt: string | undefined;
   let lastReply: string | undefined;
@@ -55,6 +56,7 @@ export async function parseCodexSession(
         id ??= asString(payload.id) ?? asString(payload.session_id);
         cwd ??= asString(payload.cwd);
         source ??= payload.source;
+        gitBranch ??= isObject(payload.git) ? asString(payload.git.branch) : undefined;
         break;
       case 'turn_context':
         noteTimestamp();
@@ -99,6 +101,7 @@ export async function parseCodexSession(
     messageCount,
     subagentCount: 0,
     model,
+    gitBranch,
     cwd,
     startedAt,
     updatedAt,

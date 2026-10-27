@@ -34,6 +34,7 @@ test('interactive VS Code session skips injected messages, unwraps the IDE reque
   assert.equal(session.lastReply, 'Docs updated in README.');
   assert.equal(session.messageCount, 4);
   assert.equal(session.model, 'gpt-5.6-sol');
+  assert.equal(session.gitBranch, 'feat/config-loader');
   assert.equal(session.cwd, 'D:\\work\\demo');
   assert.equal(session.startedAt, '2026-10-03T10:00:00.000Z');
   assert.equal(session.updatedAt, '2026-10-03T10:05:30.000Z');
