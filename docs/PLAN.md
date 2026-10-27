@@ -28,16 +28,16 @@
 | 訊息數 | 使用者訊息加上含文字的 assistant 紀錄 | 使用者訊息加上 assistant message |
 | subagent 數 | 同名資料夾下 `subagents/*.jsonl` 的數量 | subagent 是獨立的 rollout 檔，`session_meta.payload.source.subagent.thread_spawn.parent_thread_id` 指向父 session；由索引層計算所有後代數量 |
 | 模型 | `assistant.message.model`，取最後一筆，排除 `<synthetic>` | `turn_context.payload.model`，取最後一筆 |
-| 分支 | 紀錄裡的 `gitBranch`，取最後一筆 | 沒有，改用 `cwd` 查 git |
-| 工作目錄 | 第一筆紀錄的 `cwd` | `session_meta.payload.cwd` |
-| 是否為非互動模式 | `entrypoint: "sdk-cli"`（`claude --print`）；互動式是 `cli` 或 `claude-vscode` | `source: "exec"`；subagent 也視為非互動，不單獨列出 |
-| 時間 | 相關紀錄中第一筆與最後一筆的 `timestamp` | 同左；只看 session_meta、turn_context 與 user/assistant message |
+| 分支 | 紀錄裡的 `gitBranch`，取最後一筆 | 解析器不提供；M3 範圍層查 git common dir 時順便取得目前分支 |
+| 工作目錄 | 第一筆 user 或 assistant 紀錄的 `cwd` | `session_meta.payload.cwd` |
+| 是否為非互動模式 | `entrypoint: "sdk-cli"`（`claude --print`）；互動式是 `cli` 或 `claude-vscode` | `source: "exec"`；`source` 為含 `subagent` 鍵的物件也視為非互動，包括 `thread_spawn` 與 `review` 兩種 |
+| 時間 | user、assistant 紀錄中第一筆與最後一筆的 `timestamp` | 只看 session_meta、turn_context 與 response_item message；`compacted` 等其他紀錄不算 |
 
 **規模：** Claude 有 32 個專案目錄、54 個 session，單檔中位數 1.3 MB、最大 31 MB；Codex 有 849 個 session，單檔中位數 0.6 MB、最大 35.8 MB。
 
 **M1 實測（2026-10-27，循序解析、尚無快取）：**
-- Claude：54 個全部解析成功，互動式 52 個，subagent 檔共 524 個；耗時 0.9 秒。
-- Codex：849 個全部解析成功，其中 subagent 687 個、exec 57 個、互動式 105 個；subagent 的父 session 都找得到；耗時 3.3 秒。
+- Claude：54 個全部解析成功，互動式 52 個，subagent 檔共 525 個；耗時 0.7 到 0.9 秒。
+- Codex：849 個全部解析成功，其中 thread_spawn subagent 687 個、exec 57 個、review subagent 2 個、互動式 103 個；thread_spawn subagent 的父 session 都找得到；耗時約 3.5 秒。
 - 加入字串預先過濾之前，Codex 耗時 14.8 秒。
 - 沒有標題的 265 個 Codex session 全部是非互動式。
 

@@ -43,7 +43,8 @@
     "typecheck": "tsc --noEmit",
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
-    "check": "npm run typecheck && npm run build"
+    "check": "npm run typecheck && npm run build",
+    "test": "tsc --outDir out && node --test \"out/test/**/*.test.js\""
   },
   "devDependencies": {
     "@types/node": "24.19.2",
