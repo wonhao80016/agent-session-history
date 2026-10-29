@@ -96,7 +96,7 @@ src/
     main.ts             webview 端的畫面繪製與事件，另行打包成 dist/webview.js（W1）
     tsconfig.json       webview 用 DOM 型別，與擴充端分開檢查（W1）
 media/
-  history.svg           Activity Bar 圖示
+  sessions.svg          Activity Bar 圖示（面板 + 星芒；自繪，不取自圖示庫）
   webview.css           卡片樣式，只用 --vscode-* 主題變數（W1）
 test/
   fixtures/             手寫合成的 Claude 與 Codex 範例 jsonl
@@ -290,6 +290,7 @@ W1 起，點卡片改由各 agent 自己的 VS Code 擴充接續，不開終端�
 | 測試資料 | 全部手寫合成，不從真實對話複製任何內容 |
 | 打包與安裝（2026-10-27） | 用 `@vscode/vsce` 4.0.0（devDependency，固定版本）執行 `npm run package`，以 `--no-dependencies --allow-missing-repository --skip-license` 打包；`.vsix` 只含 `package.json`、`dist/extension.js`、`media/` 與 README，約 17 KB；以 `code --install-extension` 安裝到使用者的 VS Code。安裝、更新、移除步驟寫在 `README.md` |
 | 刪除 session（2026-10-27） | 只做單筆「移到資源回收筒」，含相關檔案；10 分鐘內有更新的拒絕；不做永久刪除與批次刪除 |
+| Activity Bar 圖示（2026-10-29） | 使用者在 VS Code 實際比較三個自繪方案後選擇「session 清單 + 星芒」；取代原本取自 Lucide 的歷史時鐘圖示，免除第三方授權聲明；版本 0.0.3 |
 | 介面改為卡片式 Webview View（2026-10-28） | 依 Orca 截圖的版面，取代 TreeView，不兩套並存；分 W1、W2 兩步 |
 | 超大行提示（2026-10-28） | 使用者問到提示的意義後，確認被跳過的 2 行是 Codex 的 `event_msg`（貼上的 15.2 MiB 截圖），解析器本來就不用；改成依紀錄類型判斷是否計數，並在輸出面板記下檔案 |
 | 接續方式（2026-10-28） | 使用者要求改由 VS Code 的 Claude Code、Codex 擴充接續，不用終端；Claude 的 session 不屬於目前視窗時，經確認後開新視窗交接；終端只留作明確選項 |
