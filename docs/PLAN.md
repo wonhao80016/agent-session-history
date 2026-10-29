@@ -235,7 +235,7 @@ W1 起，點卡片改由各 agent 自己的 VS Code 擴充接續，不開終端�
   - 快取檔約 1 MB，存在擴充的 globalStorage（`index-v1.json`）。
 - **快取作廢**：`SessionRecord` 或解析規則改變時調高 `CACHE_SCHEMA_VERSION`；快取也記錄解析選項（目前是 `maxLineBytes`），選項不同就整份作廢。多個 VS Code 視窗共用快取檔，寫入時各自使用含 pid 與亂數的暫存檔再改名。
 - **Codex 標題**：在索引層套用，不存進快取，所以 thread 改名不需要重新解析。
-- **M3 實測（2026-10-27，以 `stock_analyze_panel` 當 workspace）**：
+- **M3 實測（2026-10-27，以一個有 worktree 的本機專案當 workspace）**：
   - Workspace 12 個（Claude 8、Codex 4），與獨立 Python 參考腳本一致；Project 也是 12 個，因為該 repo 目前沒有其他 worktree。
   - All 153 個、36 組。
   - 42 個不同的工作目錄查 git 耗時約 2 秒，其中 18 個是 repo。
@@ -246,7 +246,7 @@ W1 起，點卡片改由各 agent 自己的 VS Code 擴充接續，不開終端�
 |---|---|---|
 | `agentSessionHistory.claudeDir` | `~/.claude` | Claude 資料目錄 |
 | `agentSessionHistory.codexDir` | `~/.codex` | Codex 資料目錄 |
-| `agentSessionHistory.includeNonInteractive` | `false` | 是否顯示 `codex exec`、`claude --print` 這類非互動 session（你的 review-debate-orchestrator 會產生大量這種紀錄） |
+| `agentSessionHistory.includeNonInteractive` | `false` | 是否顯示 `codex exec`、`claude --print` 這類非互動 session（自動化流程可能產生大量這種紀錄） |
 | `agentSessionHistory.includeCodexArchived` | `false` | 是否掃描 `~/.codex/archived_sessions` |
 | `agentSessionHistory.maxLineBytes` | `10485760` | 單行大小上限，超過就跳過；最小 1 MiB，因為 Codex 的 `session_meta` 一行可達約 23 KB，太小會讓整個 session 消失 |
 
@@ -257,7 +257,7 @@ W1 起，點卡片改由各 agent 自己的 VS Code 擴充接續，不開終端�
 | M0 骨架 | 建立 package.json、tsconfig、esbuild 打包、`.vscode/launch.json`；側欄顯示空的 TreeView | 按 F5 開啟擴充開發主機，側欄看得到 Agent Session History |
 | M1 解析器 | 完成 `claude.ts`、`codex.ts`、`lineReader.ts` 與去識別化 fixtures | `node --test` 全部通過；涵蓋超大行、損壞行、缺欄位、沒有標題 |
 | M2 索引與 All | 完成 indexer、cache、All 範圍的樹 | session 總數與獨立 Python 參考腳本一致；記錄冷、熱掃描的實測時間 |
-| M3 範圍 | 完成 Workspace、Project 過濾與 git common dir 查詢 | 開 `stock_analyze_panel` 時，Workspace 只列該目錄的 session；Project 也包含它的 worktree；有測試覆蓋 cwd 已刪除的情況 |
+| M3 範圍 | 完成 Workspace、Project 過濾與 git common dir 查詢 | 開一個本機專案時，Workspace 只列該目錄的 session；Project 也包含它的 worktree；有測試覆蓋 cwd 已刪除的情況 |
 | M4 動作 | 完成接續、開啟、複製、搜尋、刷新、自動更新 | 手動測試：Claude 與 Codex 各接續一次成功；新增 session 後清單會自動更新 |
 | M4.1 移到資源回收筒 | 依第 6.4 節實作單筆移動 | 單元測試涵蓋路徑計算、大小統計與最新修改時間；使用者在 F5 實測移動一個舊 session 後，可從資源回收筒還原 |
 | M5 打包 | 用 `vsce package` 產生 .vsix 並在本機安裝 | 在一般 VS Code 視窗安裝後，M2 到 M4 的驗收項目重跑通過 |

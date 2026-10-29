@@ -2,3 +2,7 @@ node_modules/
 dist/
 out/
 *.vsix
+# Local screenshots are not part of the project.
+/*.png
+*.7z
+*.zip

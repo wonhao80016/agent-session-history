@@ -5,7 +5,15 @@
   "version": "0.0.2",
   "publisher": "local",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RyderDong/agent-session-history.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RyderDong/agent-session-history/issues"
+  },
+  "homepage": "https://github.com/RyderDong/agent-session-history#readme",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -204,7 +212,7 @@
     "check": "npm run typecheck && npm run build",
     "test": "tsc --outDir out && node --test \"out/test/**/*.test.js\"",
     "vscode:prepublish": "npm run check",
-    "package": "vsce package --no-dependencies --allow-missing-repository --skip-license"
+    "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
@@ -212,5 +220,12 @@
     "@vscode/vsce": "4.0.0",
     "esbuild": "0.28.2",
     "typescript": "5.9.3"
-  }
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "codex",
+    "session",
+    "history"
+  ]
 }

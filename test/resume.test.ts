@@ -20,7 +20,7 @@ after(async () => {
 });
 
 test('Claude project directory names replace every non-alphanumeric character', () => {
-  assert.equal(claudeProjectDirName('D:\\codebase\\side_proj\\ai_terminal'), 'D--codebase-side-proj-ai-terminal');
+  assert.equal(claudeProjectDirName('D:\\code\\side_proj\\my_app'), 'D--code-side-proj-my-app');
   assert.equal(claudeProjectDirName('C:/Users/me/orca/workspaces/app.v2'), 'C--Users-me-orca-workspaces-app-v2');
   assert.equal(claudeProjectDirName('/home/me/app'), '-home-me-app');
 });
