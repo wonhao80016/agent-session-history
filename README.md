@@ -66,7 +66,7 @@ A VS Code sidebar that lists your local **Claude Code** and **Codex** sessions a
 
 ### From a release
 
-1. Download `agent-session-history-<version>.vsix` from the [Releases](https://github.com/RyderDong/agent-session-history/releases) page.
+1. Download `agent-session-history-<version>.vsix` from the [Releases](https://github.com/wonhao80016/agent-session-history/releases) page.
 2. Install it:
 
    ```sh

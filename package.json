@@ -8,12 +8,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RyderDong/agent-session-history.git"
+    "url": "https://github.com/wonhao80016/agent-session-history.git"
   },
   "bugs": {
-    "url": "https://github.com/RyderDong/agent-session-history/issues"
+    "url": "https://github.com/wonhao80016/agent-session-history/issues"
   },
-  "homepage": "https://github.com/RyderDong/agent-session-history#readme",
+  "homepage": "https://github.com/wonhao80016/agent-session-history#readme",
   "engines": {
     "vscode": "^1.100.0"
   },

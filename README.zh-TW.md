@@ -71,7 +71,7 @@
 
 ### 從 Release 安裝
 
-1. 到 [Releases](https://github.com/RyderDong/agent-session-history/releases) 頁面下載 `agent-session-history-<版本>.vsix`。
+1. 到 [Releases](https://github.com/wonhao80016/agent-session-history/releases) 頁面下載 `agent-session-history-<版本>.vsix`。
 2. 安裝：
 
    ```sh
