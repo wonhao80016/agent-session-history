@@ -7,6 +7,7 @@ export interface ScopeContext {
   workspaceDirs: readonly string[];
   workspaceRepoKeys: ReadonlySet<string>;
   repoOf: (cwd: string) => RepoInfo | undefined;
+  isMissingDir: (cwd: string) => boolean;
   platform: NodeJS.Platform;
 }
 
@@ -46,6 +47,7 @@ export interface GroupIdentity {
   key: string;
   label: string;
   path?: string;
+  missing?: true;
 }
 
 /** Sessions from a repository and its linked worktrees share one group. */
@@ -57,5 +59,6 @@ export function groupIdentity(session: SessionRecord, context: ScopeContext): Gr
   if (repo) {
     return { key: `repo:${repo.key}`, label: repo.name, path: repo.root };
   }
-  return { key: `dir:${normalizePath(session.cwd, context.platform)}`, label: displayName(session.cwd), path: session.cwd };
+  const identity: GroupIdentity = { key: `dir:${normalizePath(session.cwd, context.platform)}`, label: displayName(session.cwd), path: session.cwd };
+  return context.isMissingDir(session.cwd) ? { ...identity, missing: true } : identity;
 }

@@ -39,6 +39,8 @@ export interface GroupView {
   key: string;
   label: string;
   path?: string;
+  /** The group's directory no longer exists; such groups offer moving all of their sessions to the Recycle Bin. */
+  missing?: true;
   cards: CardView[];
 }
 
@@ -67,6 +69,7 @@ export type WebviewMessage =
   | { type: 'setQuery'; query: string; seq: number }
   | { type: 'open'; key: string }
   | { type: 'showActions'; key: string }
+  | { type: 'trashGroup'; key: string }
   | { type: 'refresh' }
   | { type: 'openSettings' };
 
@@ -74,6 +77,8 @@ export type HostMessage = { type: 'state'; state: ViewState } | { type: 'focusSe
 
 const MAX_QUERY_LENGTH = 500;
 const MAX_KEY_LENGTH = 200;
+/** Group keys embed a full directory path, and Windows extended-length paths reach 32,767 characters. */
+const MAX_GROUP_KEY_LENGTH = 33_000;
 
 /** Rejects anything that is not a well-formed message, so handlers never see unexpected shapes. */
 export function parseWebviewMessage(raw: unknown): WebviewMessage | undefined {
@@ -97,6 +102,10 @@ export function parseWebviewMessage(raw: unknown): WebviewMessage | undefined {
     case 'open':
     case 'showActions':
       return typeof message.key === 'string' && message.key.length <= MAX_KEY_LENGTH
+        ? { type: message.type, key: message.key }
+        : undefined;
+    case 'trashGroup':
+      return typeof message.key === 'string' && message.key.length <= MAX_GROUP_KEY_LENGTH
         ? { type: message.type, key: message.key }
         : undefined;
     default:

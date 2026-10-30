@@ -6,12 +6,16 @@ export interface ProjectGroup {
   key: string;
   label: string;
   path?: string;
+  missing?: true;
   sessions: SessionRecord[];
 }
 
 export type SessionComparator = (a: SessionRecord, b: SessionRecord) => number;
 
-/** Sessions are sorted within each group, and groups are ordered by their first session under the same comparator. */
+/**
+ * Sessions are sorted within each group, and groups are ordered by their first session under the same comparator;
+ * groups whose folder no longer exists come after all others.
+ */
 export function groupSessions(
   sessions: readonly SessionRecord[],
   identify: (session: SessionRecord) => GroupIdentity,
@@ -31,5 +35,5 @@ export function groupSessions(
   for (const group of result) {
     group.sessions.sort(compare);
   }
-  return result.sort((a, b) => compare(a.sessions[0], b.sessions[0]));
+  return result.sort((a, b) => Number(a.missing === true) - Number(b.missing === true) || compare(a.sessions[0], b.sessions[0]));
 }

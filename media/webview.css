@@ -254,6 +254,29 @@ button {
   text-align: center;
 }
 
+.tag-missing {
+  flex-shrink: 0;
+  border-color: var(--vscode-editorWarning-foreground);
+  color: var(--vscode-editorWarning-foreground);
+  font-weight: normal;
+}
+
+.group-trash {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px var(--side);
+  border-bottom: 1px solid var(--border);
+  color: var(--vscode-descriptionForeground);
+  scroll-margin-top: 34px;
+}
+
+.group-trash:focus-visible {
+  background: var(--vscode-list-focusBackground, var(--vscode-list-hoverBackground));
+}
+
 .card {
   padding: 8px var(--side) 10px;
   border-bottom: 1px solid var(--border);

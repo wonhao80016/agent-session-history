@@ -6,12 +6,13 @@ import { DEFAULT_MAX_LINE_BYTES, MIN_MAX_LINE_BYTES, SessionRecord } from './mod
 import { IndexCache } from './index/cache';
 import { IndexOptions, IndexResult, SessionIndexer } from './index/indexer';
 import { RefreshScheduler } from './index/refreshScheduler';
-import { Scope, SCOPES, SORT_KEYS, SortKey, WebviewMessage } from './protocol';
+import { Scope, SCOPES, SORT_KEYS, SortKey, ViewState, WebviewMessage } from './protocol';
 import { takePendingResume, writePendingResume } from './resume/handoff';
 import { ScopeContext } from './scope/filter';
 import { GitRepoResolver, runGitWorktreeList } from './scope/gitRepo';
-import { expandHome } from './scope/paths';
-import { moveSessionToTrash } from './trash';
+import { findMissingDirs } from './scope/missingDirs';
+import { expandHome, normalizePath } from './scope/paths';
+import { moveSessionsToTrash, moveSessionToTrash } from './trash';
 import { buildViewState, ScanSummary, sessionKey } from './view/viewModel';
 import { SessionWebviewProvider } from './view/webviewProvider';
 
@@ -42,6 +43,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const repos = new GitRepoResolver();
   let sessions: SessionRecord[] | undefined;
   let sessionsByKey = new Map<string, SessionRecord>();
+  let missingDirs = new Set<string>();
+  let viewState: ViewState | undefined;
   let scan: ScanSummary | undefined;
   let scope = readStored(context, SCOPE_STATE_KEY, SCOPES, 'workspace');
   let sort = readStored(context, SORT_STATE_KEY, SORT_KEYS, 'updated');
@@ -92,14 +95,22 @@ export function activate(context: vscode.ExtensionContext): void {
         repoKeys.add(repo.key);
       }
     }
-    return { workspaceDirs: dirs, workspaceRepoKeys: repoKeys, repoOf: (cwd) => repos.lookup(cwd), platform: process.platform };
+    return {
+      workspaceDirs: dirs,
+      workspaceRepoKeys: repoKeys,
+      repoOf: (cwd) => repos.lookup(cwd),
+      isMissingDir: (cwd) => missingDirs.has(normalizePath(cwd, process.platform)),
+      platform: process.platform,
+    };
   };
 
   const render = (): void => {
-    provider.update(buildViewState({ sessions, scope, sort, query, querySeq, indexing, indexFailed, scan, context: scopeContext() }));
+    viewState = buildViewState({ sessions, scope, sort, query, querySeq, indexing, indexFailed, scan, context: scopeContext() });
+    provider.update(viewState);
   };
 
-  const resolveRepos = async (indexed: readonly SessionRecord[]): Promise<void> => {
+  // Directories inside a repository are grouped by the repository, so only the remaining ones are probed.
+  const resolveDirectories = async (indexed: readonly SessionRecord[]): Promise<Set<string>> => {
     const dirs = new Set(workspaceDirs());
     for (const session of indexed) {
       if (session.cwd) {
@@ -107,6 +118,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
     await repos.resolveAll(dirs);
+    return findMissingDirs([...dirs].filter((dir) => !repos.lookup(dir)));
   };
 
   // Watcher-driven refreshes stay silent, so a session being written does not flash "Indexing…" every interval.
@@ -117,18 +129,18 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     try {
       const options = readOptions();
-      const build = async (): Promise<IndexResult> => {
-        const built = await indexer.build(options);
+      const build = async (): Promise<{ result: IndexResult; missing: Set<string> }> => {
+        const result = await indexer.build(options);
         if (retryRepoMisses) {
           retryRepoMisses = false;
           repos.forgetMisses();
         }
-        await resolveRepos(built.sessions);
-        return built;
+        return { result, missing: await resolveDirectories(result.sessions) };
       };
-      const result = showProgress ? await vscode.window.withProgress({ location: { viewId: VIEW_ID } }, build) : await build();
-      // Publish only after repositories are resolved, so a scope switch mid-index never sees half-resolved groups.
+      const { result, missing } = showProgress ? await vscode.window.withProgress({ location: { viewId: VIEW_ID } }, build) : await build();
+      // Publish only after directories are resolved, so a scope switch mid-index never sees half-resolved groups.
       sessions = result.sessions;
+      missingDirs = missing;
       sessionsByKey = new Map(sessions.map((session) => [sessionKey(session), session]));
       const { files, parsed, cached, failed, skippedLines, durationMs } = result.stats;
       scan = { files, failed, skippedLines, maxLineBytes: options.maxLineBytes, finishedAt: new Date().toISOString() };
@@ -204,6 +216,18 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
+  // Only groups shown as missing in the current view are accepted, and only their visible sessions are moved.
+  const trashGroup = async (key: string): Promise<void> => {
+    const group = viewState?.groups.find((candidate) => candidate.key === key && candidate.missing);
+    const members = group?.cards.map((card) => sessionsByKey.get(card.key)).filter((session): session is SessionRecord => session !== undefined);
+    if (!group || !members || members.length === 0) {
+      return;
+    }
+    if (await moveSessionsToTrash(members, group.label)) {
+      await refresh();
+    }
+  };
+
   const openSession = async (key: string): Promise<void> => {
     const session = sessionsByKey.get(key);
     if (!session) {
@@ -274,6 +298,8 @@ export function activate(context: vscode.ExtensionContext): void {
         return openSession(message.key);
       case 'showActions':
         return showActions(message.key);
+      case 'trashGroup':
+        return trashGroup(message.key);
     }
   };
 

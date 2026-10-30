@@ -6,7 +6,7 @@ import { after, before, test } from 'node:test';
 import { DEFAULT_MAX_LINE_BYTES, SessionRecord } from '../src/model';
 import { IndexCache } from '../src/index/cache';
 import { SessionIndexer } from '../src/index/indexer';
-import { sessionPaths, summarizePaths } from '../src/index/ownedPaths';
+import { sessionPaths, summarizePaths, summarizeSessions } from '../src/index/ownedPaths';
 import { formatBytes } from '../src/view/format';
 
 const fixtures = path.join(__dirname, '..', '..', 'test', 'fixtures');
@@ -88,6 +88,35 @@ test('summary counts files recursively, skips missing paths, and reports the new
   assert.equal(summary.fileCount, 2);
   assert.equal(summary.totalBytes, 15);
   assert.equal(summary.newestMtimeMs, newer.getTime());
+});
+
+test('a batch summary combines sessions, counts shared paths once, and keeps each session newest mtime', async () => {
+  const batchDir = path.join(workDir, 'batch');
+  await mkdir(batchDir, { recursive: true });
+  const first = path.join(batchDir, 'one.jsonl');
+  const second = path.join(batchDir, 'two.jsonl');
+  const shared = path.join(batchDir, 'shared.jsonl');
+  await writeFile(first, '12');
+  await writeFile(second, '1234');
+  await writeFile(shared, '123456');
+  const old = new Date('2026-01-01T00:00:00Z');
+  const newer = new Date('2026-03-01T00:00:00Z');
+  await utimes(first, old, old);
+  await utimes(shared, old, old);
+  await utimes(second, newer, newer);
+  const sessions = [
+    base({ agent: 'codex', id: 'one', filePath: first, ownedFiles: [first, shared] }),
+    base({ agent: 'codex', id: 'two', filePath: second, ownedFiles: [second, shared] }),
+    base({ agent: 'codex', id: 'gone', filePath: path.join(batchDir, 'gone.jsonl') }),
+  ];
+
+  const summary = await summarizeSessions(sessions);
+
+  assert.deepEqual(summary.existing, [first, shared, second]);
+  assert.equal(summary.fileCount, 3);
+  assert.equal(summary.totalBytes, 12);
+  assert.equal(summary.newestMtimeMs, newer.getTime());
+  assert.deepEqual(summary.newestPerSession, [old.getTime(), newer.getTime(), 0]);
 });
 
 test('links inside a session directory are counted as themselves and not followed', async () => {

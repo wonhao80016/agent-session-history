@@ -47,7 +47,7 @@ test('Windows paths compare case- and separator-insensitively', () => {
 });
 
 test('groups by directory when no repository is known, newest group and newest session first', () => {
-  const context: ScopeContext = { workspaceDirs: [], workspaceRepoKeys: new Set(), repoOf: () => undefined, platform: 'win32' };
+  const context: ScopeContext = { workspaceDirs: [], workspaceRepoKeys: new Set(), repoOf: () => undefined, isMissingDir: () => false, platform: 'win32' };
   const groups = groupSessions(
     [
       session({ id: 'a', cwd: 'D:\\x\\alpha', updatedAt: '2026-10-01T00:00:00Z' }),

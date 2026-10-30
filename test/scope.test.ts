@@ -7,6 +7,7 @@ import { after, before, test } from 'node:test';
 import { SessionRecord } from '../src/model';
 import { filterByScope, groupIdentity, isInside, ScopeContext } from '../src/scope/filter';
 import { GitRepoResolver, RepoInfo } from '../src/scope/gitRepo';
+import { directoryIsMissing, findMissingDirs } from '../src/scope/missingDirs';
 import { groupSessions } from '../src/view/grouping';
 
 function session(id: string, cwd: string | undefined, updatedAt = '2026-10-01T00:00:00Z'): SessionRecord {
@@ -32,10 +33,11 @@ const repos = new Map<string, RepoInfo>([
   ['c:\\worktrees\\app-fix', repoA],
 ]);
 
-function context(workspaceDirs: string[]): ScopeContext {
+function context(workspaceDirs: string[], missingDirs: string[] = []): ScopeContext {
   const repoOf = (dir: string) => repos.get(dir.toLowerCase().replace(/\//g, '\\').replace(/\\+$/, ''));
   const workspaceRepoKeys = new Set(workspaceDirs.map(repoOf).filter((r): r is RepoInfo => r !== undefined).map((r) => r.key));
-  return { workspaceDirs, workspaceRepoKeys, repoOf, platform: 'win32' };
+  const isMissingDir = (dir: string) => missingDirs.includes(dir);
+  return { workspaceDirs, workspaceRepoKeys, repoOf, isMissingDir, platform: 'win32' };
 }
 
 const sessions = [
@@ -86,6 +88,49 @@ test('a repository and its worktrees share one group named after the repository'
     ['other', ['other']],
   ]);
   assert.equal(groups[0].path, 'D:\\code\\app');
+});
+
+test('only directory groups whose folder no longer exists are marked missing', () => {
+  const ctx = context([], ['D:\\code\\gone', 'D:\\code\\app']);
+
+  assert.equal(groupIdentity(session('gone', 'D:\\code\\gone'), ctx).missing, true);
+  assert.equal(groupIdentity(session('present', 'D:\\code\\other'), ctx).missing, undefined);
+  assert.equal(groupIdentity(session('repo', 'D:\\code\\app'), ctx).missing, undefined);
+  assert.equal(groupIdentity(session('no-cwd', undefined), ctx).missing, undefined);
+});
+
+test('missing groups sort after every other group', () => {
+  const ctx = context([], ['D:\\code\\gone']);
+  const groups = groupSessions(
+    [
+      session('gone', 'D:\\code\\gone', '2026-10-09T00:00:00Z'),
+      session('other', 'D:\\code\\other', '2026-10-01T00:00:00Z'),
+      session('root', 'D:\\code\\app', '2026-10-02T00:00:00Z'),
+    ],
+    (s) => groupIdentity(s, ctx),
+  );
+
+  assert.deepEqual(groups.map((g) => [g.label, g.missing === true]), [
+    ['app', false],
+    ['other', false],
+    ['gone', true],
+  ]);
+});
+
+test('missing directories are probed once per normalized path', async () => {
+  const probed: string[] = [];
+  const missing = await findMissingDirs(['D:\\gone', 'd:/gone/', 'D:\\here'], 'win32', async (dir) => {
+    probed.push(dir);
+    return dir.toLowerCase().includes('gone');
+  });
+
+  assert.equal(probed.length, 2);
+  assert.deepEqual([...missing], ['d:\\gone']);
+});
+
+test('only a not-found error marks a directory missing', async () => {
+  assert.equal(await directoryIsMissing(tmpdir()), false);
+  assert.equal(await directoryIsMissing(path.join(tmpdir(), 'ash-does-not-exist-7f3c')), true);
 });
 
 test('resolver runs git once per normalized directory and can retry misses', async () => {

@@ -107,7 +107,13 @@ function buildNotices(input: ViewInput): string[] {
 }
 
 function toGroupView(group: ProjectGroup, input: ViewInput): GroupView {
-  return { key: group.key, label: group.label, path: group.path, cards: group.sessions.map((session) => toCardView(session, input)) };
+  return {
+    key: group.key,
+    label: group.label,
+    path: group.path,
+    missing: group.missing,
+    cards: group.sessions.map((session) => toCardView(session, input)),
+  };
 }
 
 function toCardView(session: SessionRecord, input: ViewInput): CardView {

@@ -20,8 +20,10 @@ interface GroupNode {
   section: HTMLElement;
   header: HTMLButtonElement;
   label: HTMLElement;
+  missingTag: HTMLElement;
   badge: HTMLElement;
   body: HTMLElement;
+  trashRow: HTMLElement;
   /** Whether `open` was decided for a search; expansion changed during a search is not persisted. */
   searching: boolean;
   open: boolean;
@@ -282,14 +284,16 @@ function createGroup(key: string): GroupNode {
   header.dataset.groupKey = key;
   header.dataset.focusKey = `group:${key}`;
   const label = element('span', 'group-label');
+  const missingTag = element('span', 'tag tag-missing');
+  missingTag.append(icon('warning'), element('span', undefined, 'Missing folder'));
   const badge = element('span', 'badge');
-  header.append(icon('chevron', 'chevron'), label, badge);
+  header.append(icon('chevron', 'chevron'), label, missingTag, badge);
   const body = element('div', 'group-body');
   body.setAttribute('role', 'group');
   body.id = `group-body-${nextGroupId++}`;
   header.setAttribute('aria-owns', body.id);
   section.append(header, body);
-  const node: GroupNode = { key, section, header, label, badge, body, searching: false, open: false };
+  const node: GroupNode = { key, section, header, label, missingTag, badge, body, trashRow: createTrashRow(key), searching: false, open: false };
   header.addEventListener('click', () => {
     node.open = !node.open;
     if (!node.searching) {
@@ -302,25 +306,44 @@ function createGroup(key: string): GroupNode {
   return node;
 }
 
+/** A tree row rather than a header button, since the group header is itself a button and cannot contain one. */
+function createTrashRow(key: string): HTMLElement {
+  const row = element('div', 'group-trash');
+  row.tabIndex = -1;
+  row.setAttribute('role', 'treeitem');
+  row.setAttribute('aria-level', '2');
+  row.dataset.row = 'trash';
+  row.dataset.groupKey = key;
+  row.dataset.focusKey = `trash:${key}`;
+  const button = element('button', 'text-button', 'Move all to Recycle Bin…');
+  button.type = 'button';
+  button.tabIndex = -1;
+  button.addEventListener('click', () => {
+    focusRow(row);
+    post({ type: 'trashGroup', key });
+  });
+  row.append(element('span', 'group-trash-text', 'This folder no longer exists.'), button);
+  return row;
+}
+
 function updateGroup(node: GroupNode, group: GroupView, nextCards: Map<string, CardNode>): void {
   if (group.path) {
-    node.header.title = group.path;
+    node.header.title = group.missing ? `${group.path} (missing)` : group.path;
   } else {
     node.header.removeAttribute('title');
   }
   node.label.textContent = group.label;
+  node.missingTag.hidden = !group.missing;
   node.badge.textContent = String(group.cards.length);
   applyOpen(node);
-  syncChildren(
-    node.body,
-    group.cards.map((card) => {
-      const json = JSON.stringify(card);
-      const existing = cardNodes.get(card.key);
-      const cardNode = existing?.json === json ? existing : { json, node: renderCard(card) };
-      nextCards.set(card.key, cardNode);
-      return cardNode.node;
-    }),
-  );
+  const cards = group.cards.map((card) => {
+    const json = JSON.stringify(card);
+    const existing = cardNodes.get(card.key);
+    const cardNode = existing?.json === json ? existing : { json, node: renderCard(card) };
+    nextCards.set(card.key, cardNode);
+    return cardNode.node;
+  });
+  syncChildren(node.body, group.missing ? [node.trashRow, ...cards] : cards);
 }
 
 function applyOpen(node: GroupNode): void {
@@ -493,7 +516,8 @@ function handleListKey(event: KeyboardEvent): void {
     return;
   }
   const isCard = row.dataset.row === 'card';
-  const group = isCard ? undefined : groupNodes.get(row.dataset.groupKey ?? '');
+  const isTrash = row.dataset.row === 'trash';
+  const group = isCard || isTrash ? undefined : groupNodes.get(row.dataset.groupKey ?? '');
   const rows = visibleRows();
   const index = rows.indexOf(row);
   switch (event.key) {
@@ -515,13 +539,13 @@ function handleListKey(event: KeyboardEvent): void {
       } else if (group && !group.open) {
         group.header.click();
       } else {
-        focusRow(rows[index + 1]?.dataset.row === 'card' ? rows[index + 1] : undefined);
+        focusRow(rows[index + 1]?.dataset.row === 'group' ? undefined : rows[index + 1]);
       }
       break;
     case 'ArrowLeft':
       if (isCard && row.classList.contains('expanded')) {
         setDetailsOpen(row, row.dataset.key ?? '', false);
-      } else if (isCard) {
+      } else if (isCard || isTrash) {
         focusRow(row.closest('.group')?.querySelector<HTMLElement>('.group-header') ?? undefined);
       } else if (group?.open) {
         group.header.click();
@@ -529,10 +553,13 @@ function handleListKey(event: KeyboardEvent): void {
       break;
     case 'Enter':
     case ' ':
-      if (!isCard) {
+      if (isTrash) {
+        post({ type: 'trashGroup', key: row.dataset.groupKey ?? '' });
+      } else if (isCard) {
+        post({ type: 'open', key: row.dataset.key ?? '' });
+      } else {
         return;
       }
-      post({ type: 'open', key: row.dataset.key ?? '' });
       break;
     case 'F10':
       // Handled here instead of relying on the webview context menu, so keyboard users always reach every action.

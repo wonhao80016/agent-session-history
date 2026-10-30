@@ -47,6 +47,7 @@ function input(overrides: Partial<ViewInput> = {}): ViewInput {
       workspaceDirs: [APP],
       workspaceRepoKeys: new Set([APP_REPO.key]),
       repoOf: (cwd) => (cwd === APP || cwd === APP_WORKTREE ? APP_REPO : undefined),
+      isMissingDir: () => false,
       platform: 'win32',
     },
     ...overrides,
@@ -153,6 +154,16 @@ test('notices report index failure, skipped lines, and unreadable files', () => 
   ]);
 });
 
+test('groups whose folder no longer exists are flagged and listed last', () => {
+  const base = input({ sort: 'created' });
+  const state = buildViewState({ ...base, context: { ...base.context, isMissingDir: (cwd) => cwd === OTHER } });
+
+  assert.deepEqual(state.groups.map((group) => [group.label, group.missing]), [
+    ['app', undefined],
+    ['other', true],
+  ]);
+});
+
 test('webview messages are accepted only in their documented shapes', () => {
   assert.deepEqual(parseWebviewMessage({ type: 'setScope', scope: 'project' }), { type: 'setScope', scope: 'project' });
   assert.deepEqual(parseWebviewMessage({ type: 'open', key: 'claude:a', extra: 1 }), { type: 'open', key: 'claude:a' });
@@ -167,6 +178,12 @@ test('webview messages are accepted only in their documented shapes', () => {
   assert.equal(parseWebviewMessage({ type: 'setQuery', query: 'a', seq: -1 }), undefined);
   assert.equal(parseWebviewMessage({ type: 'setQuery', query: 'a', seq: 1.5 }), undefined);
   assert.equal(parseWebviewMessage({ type: 'open' }), undefined);
+  assert.deepEqual(parseWebviewMessage({ type: 'trashGroup', key: 'dir:d:\\gone' }), { type: 'trashGroup', key: 'dir:d:\\gone' });
+  assert.equal(parseWebviewMessage({ type: 'trashGroup', key: 7 }), undefined);
+  const longGroupKey = `dir:d:\\${'a'.repeat(300)}`;
+  assert.deepEqual(parseWebviewMessage({ type: 'trashGroup', key: longGroupKey }), { type: 'trashGroup', key: longGroupKey });
+  assert.equal(parseWebviewMessage({ type: 'trashGroup', key: 'k'.repeat(33_001) }), undefined);
+  assert.equal(parseWebviewMessage({ type: 'open', key: 'k'.repeat(201) }), undefined);
   assert.equal(parseWebviewMessage({ type: 'runCommand', command: 'rm' }), undefined);
   assert.equal(parseWebviewMessage('open'), undefined);
   assert.equal(parseWebviewMessage(null), undefined);
