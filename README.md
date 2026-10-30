@@ -4,7 +4,7 @@ A VS Code sidebar that lists your local **Claude Code** and **Codex** sessions a
 
 [繁體中文說明](README.zh-TW.md)
 
-<img src="docs/images/sidebar.png" alt="Agent Session History sidebar showing session cards grouped by project, with one card expanded" width="420">
+<img src="docs/images/sidebar.gif" alt="Animated demo of the Agent Session History sidebar: switching scopes, searching, expanding a session card, and a Missing folder group with Move all to Recycle Bin" width="420">
 
 <sub>Screenshot with fictional sample sessions, Dark Modern theme.</sub>
 

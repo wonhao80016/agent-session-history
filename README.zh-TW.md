@@ -4,7 +4,7 @@
 
 [English](README.md)
 
-<img src="docs/images/sidebar.png" alt="Agent Session History 側欄：依專案分組的 session 卡片，其中一張已展開" width="420">
+<img src="docs/images/sidebar.gif" alt="Agent Session History 側欄操作示範：切換範圍、搜尋、展開 session 卡片，以及含 Move all to Recycle Bin 的 Missing folder 群組" width="420">
 
 <sub>截圖使用虛構的範例 session，Dark Modern 主題。</sub>
 

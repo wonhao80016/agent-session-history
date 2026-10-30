@@ -254,7 +254,7 @@ button {
   text-align: center;
 }
 
-.tag-missing {
+.tag.tag-missing {
   flex-shrink: 0;
   border-color: var(--vscode-editorWarning-foreground);
   color: var(--vscode-editorWarning-foreground);
@@ -315,7 +315,7 @@ button {
   overflow-wrap: anywhere;
 }
 
-.tag-current {
+.tag.tag-current {
   border-color: var(--vscode-focusBorder);
   color: var(--vscode-foreground);
 }
