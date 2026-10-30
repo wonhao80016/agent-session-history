@@ -13,6 +13,7 @@ A VS Code sidebar that lists your local **Claude Code** and **Codex** sessions a
 ### Browse
 - **Three scopes:** Workspace (sessions started in the open folder), Project (the same git repository, including its other worktrees), and All. The chosen scope is remembered per workspace.
 - **Project groups:** sessions are grouped by git repository, so all worktrees of a repository share one group; directories outside a repository are grouped by path. Groups collapse, and their state is remembered.
+- **Missing folders:** in the All scope, a group whose directory has been deleted, renamed, or moved is tagged **Missing folder** and listed after the other groups.
 - **Session cards** show the title, the agent's last reply, message count, subagent count, model, branch, and how long ago the session was updated.
   - Claude cards use Claude's generated title; Codex cards use the thread name.
   - A **Current workspace** tag marks sessions from the open folder when viewing Project or All.
@@ -34,6 +35,7 @@ A VS Code sidebar that lists your local **Claude Code** and **Codex** sessions a
 - **Move to Recycle Bin…** removes a session you no longer need, together with everything that belongs to it:
   - Claude: the transcript and its folder of subagent transcripts and tool results.
   - Codex: every page of the thread and the files of all its subagents, nested ones included.
+- **Move all to Recycle Bin…** at the top of a Missing folder group moves every session shown in it at once. If a search is active, only the matching sessions are moved.
 - A confirmation shows the number of files and their total size first.
 - Sessions updated in the last 10 minutes are refused, so a running session is never moved. The check runs again after you confirm.
 - Files always go to the Recycle Bin (the system trash on other platforms), never deleted permanently, so you can restore them. The list refreshes right away.
@@ -74,7 +76,7 @@ A VS Code sidebar that lists your local **Claude Code** and **Codex** sessions a
    ```
 
    Or, in VS Code: **Extensions** view → `⋯` → **Install from VSIX…**.
-3. Run **Developer: Reload Window** in windows that were already open. The clock icon then appears in the Activity Bar.
+3. Run **Developer: Reload Window** in windows that were already open. The Agent Session History icon then appears in the Activity Bar.
 
 ### From source
 
@@ -117,6 +119,7 @@ Both entry points below are internal to the agent extensions, not documented API
 - Transcript formats are internal to Claude Code and Codex and can change between CLI versions; unknown records are skipped.
 - Developed and tested on Windows 11. Paths are handled for macOS and Linux, but those platforms have not been tested.
 - A worktree that lies outside the open folder and has since been deleted cannot be matched to its repository, so its sessions appear only in the All scope.
+- A repository folder deleted while VS Code is open keeps its repository group until the window is reloaded; only then is it tagged Missing folder.
 
 ## Development
 

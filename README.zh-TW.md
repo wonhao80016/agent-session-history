@@ -18,6 +18,7 @@
 
   每個 workspace 會記住上次選的範圍。
 - **專案分組：** 依 git repo 分組，同一個 repo 的所有 worktree 會在同一組；不在 repo 裡的目錄依路徑分組。群組可收合，收合狀態會記住。
+- **資料夾已不存在：** 在 All 範圍中，目錄已被刪除、更名或移動的群組會標上 **Missing folder**，並排在其他群組之後。
 - **session 卡片：** 顯示標題、agent 最後一句回覆、訊息數、subagent 數、模型、分支，以及多久以前更新。
   - Claude 卡片用 Claude 自動產生的標題，Codex 卡片用 thread 名稱。
   - 在 Project 或 All 範圍中，來自目前開啟資料夾的 session 會標上 **Current workspace**。
@@ -39,6 +40,7 @@
 - **Move to Recycle Bin…** 可以刪掉不再需要的 session，連同它的所有相關檔案：
   - Claude：主紀錄檔，以及存放 subagent 紀錄與工具輸出的同名資料夾。
   - Codex：thread 的所有分頁檔，以及所有 subagent 的檔案，包含多層 subagent。
+- Missing folder 群組最上方的 **Move all to Recycle Bin…** 會一次移動群組中顯示的所有 session；搜尋中只會移動符合條件的 session。
 - 刪除前會先跳確認視窗，顯示檔案數與總大小。
 - 10 分鐘內有更新的 session 會拒絕刪除，避免動到正在執行的 session。按下確認後會再檢查一次。
 - 一律移到資源回收筒（其他作業系統是系統垃圾桶），不會永久刪除，所以都能還原。刪除後清單會立即更新。
@@ -79,7 +81,7 @@
    ```
 
    或在 VS Code 的 **Extensions** 面板 → `⋯` → **Install from VSIX…**。
-3. 已開啟的視窗各執行一次 **Developer: Reload Window**，Activity Bar 就會出現時鐘圖示。
+3. 已開啟的視窗各執行一次 **Developer: Reload Window**，Activity Bar 就會出現 Agent Session History 圖示。
 
 ### 從原始碼建置
 
@@ -126,6 +128,7 @@ code --install-extension agent-session-history-<版本>.vsix
 - 紀錄檔格式是 Claude Code 與 Codex 的內部格式，CLI 升版就可能改變；不認得的紀錄一律略過。
 - 只在 Windows 11 開發與測試過。程式有處理 macOS、Linux 的路徑，但沒有實測。
 - 位於開啟資料夾以外、而且目錄已經刪除的 worktree，無法判斷屬於哪個 repo，它的 session 只會出現在 All 範圍。
+- VS Code 開著時才被刪除的 repo 資料夾，在重新載入視窗之前仍會顯示為原本的 repo 群組，重新載入後才會標上 Missing folder。
 
 ## 開發
 

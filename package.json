@@ -2,7 +2,7 @@
   "name": "agent-session-history",
   "displayName": "Agent Session History",
   "description": "Browse local Claude Code and Codex session history by workspace, project, or all.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "local",
   "private": true,
   "license": "MIT",
