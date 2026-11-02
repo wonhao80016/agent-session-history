@@ -1,12 +1,42 @@
 # Agent Session History
 
-在 VS Code 側欄用卡片列出本機的 **Claude Code** 與 **Codex** session，依專案分組，點一下就能接續。
+<div align="center">
 
-[English](README.md)
+[![version](https://img.shields.io/github/package-json/v/wonhao80016/agent-session-history?label=version&color=007ec6)](https://github.com/wonhao80016/agent-session-history/releases) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-999999) ![VS Code](https://img.shields.io/static/v1?label=VS%20Code&message=%5E1.100.0&color=23a8f2) ![agents](https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-d97757) [![license](https://img.shields.io/badge/license-MIT-4c1)](LICENSE)
+
+**在 VS Code 裡找回並接續過去的 Claude Code 與 Codex 對話**
+
+[English](README.md) · [下載最新版本](https://github.com/wonhao80016/agent-session-history/releases/latest)
+
+</div>
+
+---
+
+## 簡介
+
+Claude Code 和 Codex 會把每一段對話（稱為 *session*）存在你的電腦上。但要找回舊的對話，通常得記得當初是在哪個資料夾開始的，或自己去翻紀錄檔。
+
+Agent Session History 把它們全部集中到 VS Code 側欄：
+
+- **所有對話一次看到**：各專案的 session 都列成卡片，依專案分組。
+- **一眼看出在聊什麼**：顯示標題、最後一則回覆和最後活動時間。
+- **快速找到**：可用標題、提示、回覆、分支或資料夾搜尋。
+- **從上次中斷處繼續**：點一下卡片就能接著對話。
+- **資料只在本機**：只讀取本機檔案，不會連網。
+
+---
+
+## 截圖
+
+<div align="center">
 
 <img src="docs/images/sidebar.gif" alt="Agent Session History 側欄操作示範：切換範圍、搜尋、展開 session 卡片，以及含 Move all to Recycle Bin 的 Missing folder 群組" width="420">
 
 <sub>截圖使用虛構的範例 session，Dark Modern 主題。</sub>
+
+</div>
+
+---
 
 ## 功能
 
@@ -59,6 +89,8 @@
 - **主題：** 顏色跟隨 VS Code 主題，淺色、深色、高對比都適用。
 - **自動更新：** 紀錄檔有變動就更新清單。有快取，約 900 個檔案之後的掃描只需約 40 毫秒。側欄第一次打開後才開始建立索引。
 
+---
+
 ## 需求
 
 - VS Code 1.100 以上。
@@ -68,6 +100,8 @@
 - 想用擴充而不是終端接續的話，要安裝對應的擴充：
   - [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code)（`anthropic.claude-code`）
   - Codex（`openai.chatgpt`）
+
+---
 
 ## 安裝
 
@@ -93,6 +127,8 @@ npm run package
 code --install-extension agent-session-history-<版本>.vsix
 ```
 
+---
+
 ## 接續方式
 
 以下兩種開啟方式都是 agent 擴充的內部機制，不是公開 API。這裡依據的是 Claude Code 2.1.311 與 Codex 26.51021 的程式碼，之後的版本可能改變。對應的擴充沒有安裝或被停用時，會改提供在終端接續。
@@ -101,6 +137,8 @@ code --install-extension agent-session-history-<版本>.vsix
 |---|---|
 | Codex | 在任何視窗都能以 Codex 編輯器分頁開啟；Codex 會使用該 thread 記錄的工作目錄。 |
 | Claude Code | Claude Code 只能接續屬於目前視窗第一個資料夾，或同一 repo 其他 worktree 的 session。其他資料夾的 session 會先詢問你，同意後開新視窗開啟該資料夾，再在新視窗接續。 |
+
+---
 
 ## 設定
 
@@ -111,6 +149,8 @@ code --install-extension agent-session-history-<版本>.vsix
 | `agentSessionHistory.includeNonInteractive` | `false` | 是否也列出 `codex exec`、`claude --print` 等非互動 session |
 | `agentSessionHistory.includeCodexArchived` | `false` | 是否掃描 Codex 的 `archived_sessions/` |
 | `agentSessionHistory.maxLineBytes` | `10485760` | 單行超過此大小就跳過（最小 1 MiB） |
+
+---
 
 ## 隱私與資料
 
@@ -123,12 +163,16 @@ code --install-extension agent-session-history-<版本>.vsix
   - 目前選的範圍與排序，存在 VS Code 的 workspace state。
 - 移除擴充後，可以手動刪除 `%APPDATA%\Code\User\globalStorage\local.agent-session-history`（其他作業系統則是對應的位置）。
 
+---
+
 ## 限制
 
 - 紀錄檔格式是 Claude Code 與 Codex 的內部格式，CLI 升版就可能改變；不認得的紀錄一律略過。
 - 只在 Windows 11 開發與測試過。程式有處理 macOS、Linux 的路徑，但沒有實測。
 - 位於開啟資料夾以外、而且目錄已經刪除的 worktree，無法判斷屬於哪個 repo，它的 session 只會出現在 All 範圍。
 - VS Code 開著時才被刪除的 repo 資料夾，在重新載入視窗之前仍會顯示為原本的 repo 群組，重新載入後才會標上 Missing folder。
+
+---
 
 ## 開發
 
@@ -140,6 +184,8 @@ code --install-extension agent-session-history-<版本>.vsix
 | F5 | 在擴充開發主機中執行 |
 
 設計說明、決策與實測數據見 [`docs/PLAN.md`](docs/PLAN.md)。
+
+---
 
 ## 授權
 

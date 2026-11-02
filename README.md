@@ -1,12 +1,42 @@
 # Agent Session History
 
-A VS Code sidebar that lists your local **Claude Code** and **Codex** sessions as cards, grouped by project, and resumes any of them in one click.
+<div align="center">
 
-[繁體中文說明](README.zh-TW.md)
+[![version](https://img.shields.io/github/package-json/v/wonhao80016/agent-session-history?label=version&color=007ec6)](https://github.com/wonhao80016/agent-session-history/releases) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-999999) ![VS Code](https://img.shields.io/static/v1?label=VS%20Code&message=%5E1.100.0&color=23a8f2) ![agents](https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-d97757) [![license](https://img.shields.io/badge/license-MIT-4c1)](LICENSE)
+
+**Find and continue your past Claude Code and Codex conversations, right from VS Code**
+
+[繁體中文說明](README.zh-TW.md) · [Download latest release](https://github.com/wonhao80016/agent-session-history/releases/latest)
+
+</div>
+
+---
+
+## Overview
+
+Claude Code and Codex save every conversation (a *session*) on your computer. Getting back to an old one usually means remembering which folder you started it in, or digging through transcript files by hand.
+
+Agent Session History puts them all in the VS Code sidebar:
+
+- **One list for everything** — sessions from every project, shown as cards and grouped by project.
+- **See what each one was about** — title, last reply, and when it was last active.
+- **Find it fast** — search by title, prompt, reply, branch, or folder.
+- **Pick up where you left off** — click a card to continue the conversation.
+- **Stays on your machine** — reads local files only and makes no network requests.
+
+---
+
+## Screenshot
+
+<div align="center">
 
 <img src="docs/images/sidebar.gif" alt="Animated demo of the Agent Session History sidebar: switching scopes, searching, expanding a session card, and a Missing folder group with Move all to Recycle Bin" width="420">
 
 <sub>Screenshot with fictional sample sessions, Dark Modern theme.</sub>
+
+</div>
+
+---
 
 ## Features
 
@@ -54,6 +84,8 @@ A VS Code sidebar that lists your local **Claude Code** and **Codex** sessions a
 - **Themes:** colors follow your VS Code theme, including light, dark, and high contrast.
 - **Stays current:** the list refreshes when transcripts change. A persistent cache keeps later scans to about 40 ms for roughly 900 files. Indexing starts only when the view is first opened.
 
+---
+
 ## Requirements
 
 - VS Code 1.100 or later.
@@ -63,6 +95,8 @@ A VS Code sidebar that lists your local **Claude Code** and **Codex** sessions a
 - To resume in an extension instead of a terminal, install the extension for that agent:
   - [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) (`anthropic.claude-code`)
   - Codex (`openai.chatgpt`)
+
+---
 
 ## Install
 
@@ -88,6 +122,8 @@ npm run package
 code --install-extension agent-session-history-<version>.vsix
 ```
 
+---
+
 ## How resuming works
 
 Both entry points below are internal to the agent extensions, not documented APIs. They were read from Claude Code 2.1.311 and Codex 26.51021 and may change in later versions. If an agent extension is missing or disabled, the extension offers to resume in a terminal instead.
@@ -96,6 +132,8 @@ Both entry points below are internal to the agent extensions, not documented API
 |---|---|
 | Codex | Opens the thread in a Codex editor tab from any window; Codex uses the thread's recorded working directory. |
 | Claude Code | Claude Code resumes only sessions that belong to the window's first folder or another worktree of the same repository. For a session from another folder, you are asked first. The extension then opens that folder in a new window and resumes the session there. |
+
+---
 
 ## Settings
 
@@ -107,6 +145,8 @@ Both entry points below are internal to the agent extensions, not documented API
 | `agentSessionHistory.includeCodexArchived` | `false` | Also scan Codex `archived_sessions/`. |
 | `agentSessionHistory.maxLineBytes` | `10485760` | Transcript lines larger than this are skipped (minimum 1 MiB). |
 
+---
+
 ## Privacy and data
 
 - The extension makes no network requests and has no telemetry.
@@ -114,12 +154,16 @@ Both entry points below are internal to the agent extensions, not documented API
 - It runs read-only `git rev-parse` and `git worktree list` in session and workspace directories to group sessions by repository.
 - It writes an index cache, about 1 MB, to VS Code's global storage, plus a small hand-off file when resuming Claude in a new window. The selected scope and sort order are kept in VS Code's workspace state. After uninstalling, you can delete `%APPDATA%\Code\User\globalStorage\local.agent-session-history` (or the equivalent on your OS).
 
+---
+
 ## Limitations
 
 - Transcript formats are internal to Claude Code and Codex and can change between CLI versions; unknown records are skipped.
 - Developed and tested on Windows 11. Paths are handled for macOS and Linux, but those platforms have not been tested.
 - A worktree that lies outside the open folder and has since been deleted cannot be matched to its repository, so its sessions appear only in the All scope.
 - A repository folder deleted while VS Code is open keeps its repository group until the window is reloaded; only then is it tagged Missing folder.
+
+---
 
 ## Development
 
@@ -131,6 +175,8 @@ Both entry points below are internal to the agent extensions, not documented API
 | F5 | Run in an Extension Development Host |
 
 The design notes, decisions, and measurements are in [`docs/PLAN.md`](docs/PLAN.md), written in Traditional Chinese.
+
+---
 
 ## License
 
