@@ -178,6 +178,12 @@ The design notes, decisions, and measurements are in [`docs/PLAN.md`](docs/PLAN.
 
 ---
 
+## Author
+
+Ryder - [@wonhao80016](https://github.com/wonhao80016)
+
+---
+
 ## License
 
 [MIT](LICENSE)

@@ -187,6 +187,12 @@ code --install-extension agent-session-history-<版本>.vsix
 
 ---
 
+## 作者
+
+Ryder - [@wonhao80016](https://github.com/wonhao80016)
+
+---
+
 ## 授權
 
 [MIT](LICENSE)
